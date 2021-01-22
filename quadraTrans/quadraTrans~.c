@@ -17,7 +17,7 @@
 #define MAX_BLOCKSIZE 8192
 #define MAX_SAMPLES 4096
 #define F_OK    0
-#define DBFILENAME "/HRIR@44100.db"
+#define DBFILENAME "./HRIR@44100.db"
 #define MyPI 3.14159265358979323846
 
 
@@ -289,7 +289,7 @@ void quadraTrans_tilde_dsp(t_quadraTrans_tilde *x, t_signal **sp){
     char str[8] = "";
     
     strcpy(file,  x->path);
-    strcat(file,  "/HRIR@");
+    strcat(file,  "./HRIR@");
     sprintf(str,  "%d", (int)x->sr);
     strcat(file,  str);
     strcat(file,  ".db");
@@ -297,7 +297,7 @@ void quadraTrans_tilde_dsp(t_quadraTrans_tilde *x, t_signal **sp){
         post("Warning: The database %s doesn't exist,\ntrying to use %s database", file, DBFILENAME);
         
         strcpy(file, x->path);
-        strcat(file,  "/HRIR@");
+        strcat(file,  "./HRIR@");
         sprintf(str,  "%d", 44100);
         strcat(file,  str);
         strcat(file,  ".db");
