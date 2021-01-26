@@ -6,7 +6,10 @@
 #include <string.h>
 #include <unistd.h>
 
-//#define PDMAC_VERSION
+#define PDMAC_VERSION
+#ifdef WIN_VERSION
+#include <io.h>
+#endif
 
 #include "m_pd.h"
 #include "fftw3.h"
@@ -16,8 +19,7 @@
 #define MAX_N_POINTS 3000
 #define MAX_BLOCKSIZE 8192
 #define MAX_SAMPLES 4096
-#define F_OK    0
-#define DBFILENAME "./HRIR@44100.db"
+#define DBFILENAME "/HRIR@44100.db"
 #define MyPI 3.14159265358979323846
 
 
@@ -28,31 +30,27 @@ typedef struct _quadraTrans_tilde{
     t_sample f_quadraTrans;
     t_sample f;
     
-    t_float aziL;
+    t_float aziL; //listener azimuth
     
-    t_float sr;
+    t_float sr; //sampling rate
     
-    t_inlet *x_in2;
-    t_inlet *x_in3;
+    t_inlet *x_in2; //inlet
+    t_inlet *x_in3; //inlet
     
-    t_outlet *x_outL;
-    t_outlet *x_outR;
-    t_outlet *x_outSL;
-    t_outlet *x_outSR;
+    t_outlet *x_outL; //outlet
+    t_outlet *x_outR; //outlet
+    t_outlet *x_outSL; //outlet
+    t_outlet *x_outSR; //outlet
     
-    t_int nPts;
-    t_int nPtsInDb;
+    t_int nPts; //No. of taps used for the convolution
+    t_int nPtsInDb; //No. of taps existing in the database (sampling rate dependent)
     t_float azimuth;
     t_float elevation;
     t_float distance;
     
-    t_float z;
-    t_float g;
-    t_int   m;
-    
-    t_float azi;
-    t_float ele;
-    t_float dis;
+    t_float azi; //azimuth value
+    t_float ele; //elevation value
+    t_float dis; //distance value
     t_float rs[2];
     t_float es[2];
     t_float as[2];
@@ -61,9 +59,9 @@ typedef struct _quadraTrans_tilde{
     t_float dist[9];
     t_int n_meas;
     
-    t_float prevAzi;
-    t_float prevEle;
-    t_float prevRng;
+    t_float prevAzi; //azimuth value
+    t_float prevEle; //elevation value
+    t_float prevDis; //distance value
     double *window;
     float hrtf[MAX_N_POINTS];
     
@@ -72,16 +70,13 @@ typedef struct _quadraTrans_tilde{
     char *zErrMsg;
     char *zHrtfErrMsg;
     
-    t_float previousImpulse[2][MAX_N_POINTS];
+    //t_float previousImpulse[2][MAX_N_POINTS];
     t_float currentImpulse[9][2][MAX_N_POINTS];
     int currentRow;
-    t_float convBufferC[MAX_N_POINTS];
-    t_float convBufferI[MAX_N_POINTS];
     
     t_float low_filter_hz;
     
     char path[2000];
-    t_float crossCoef[MAX_BLOCKSIZE];
     t_int bufferPin;
     
     //fftw
@@ -133,32 +128,34 @@ static void makewindow(double *w, int n) {
 
 t_int *quadraTrans_tilde_perform(t_int *w){
     t_quadraTrans_tilde *x = (t_quadraTrans_tilde *)(w[1]);
-    t_sample  *inXL   =  (t_sample *)(w[2]);
-    t_sample  *inXR   =  (t_sample *)(w[3]);
-    t_sample  *outSR =  (t_sample *)(w[4]);
-    t_sample  *outSL =  (t_sample *)(w[5]);
-    t_sample  *outR  =  (t_sample *)(w[6]);
-    t_sample  *outL  =  (t_sample *)(w[7]);
-    int   blocksize  =         (int)(w[8]);
+    t_sample  *inXL   =  (t_sample *)(w[2]); //inlet 1
+    t_sample  *inXR   =  (t_sample *)(w[3]); //inlet 2
+    t_sample  *outSR  =  (t_sample *)(w[4]); //outlet 4
+    t_sample  *outSL  =  (t_sample *)(w[5]); //outlet 3
+    t_sample  *outR   =  (t_sample *)(w[6]); //outlet 2
+    t_sample  *outL   =  (t_sample *)(w[7]); //outlet 1
+    int   blocksize   =         (int)(w[8]);
     
-    int az = (int)(x->aziL);
+    int az = (int)(x->aziL); //listener azimuth
     
     if (x->connected == 1) {
+        // Save last values to skip unnecessary computations
         x->prevAzi = x->azi;
         x->prevEle = x->ele;
-        x->prevRng = x->dis;
+        x->prevDis = x->dis;
         
         x->azi = roundf(x->azimuth);
         x->ele = roundf(x->elevation);
         x->dis = roundf(x->distance);
-        if ((x->prevAzi == x->azi) && (x->prevEle == x->ele) && (x->prevRng == x->dis)) {
-         } else {
-         rangeDis(x);
-         rangeEle(x);
-         rangeAzi(x);
-         formSet(x);
-         testCoplan_lin(x);
-         }
+        if ((x->prevAzi == x->azi) && (x->prevEle == x->ele) && (x->prevDis == x->dis)) {
+            //Do not find the filter
+        } else {
+            rangeDis(x);
+            rangeEle(x);
+            rangeAzi(x);
+            formSet(x);
+            testCoplan_lin(x);
+        }
         
 #pragma region main
         for (int i = 0; i < blocksize; i++) {
@@ -166,9 +163,9 @@ t_int *quadraTrans_tilde_perform(t_int *w){
                 x->fftinL[i] = (inXL[i] + inXR[i])/2;
                 x->fftinR[i] = (inXL[i] - inXR[i])/2;
             } /*else {
-                x->fftinL[i] = 0;
-                x->fftinR[i] = 0;
-            }*/
+               x->fftinL[i] = 0;
+               x->fftinR[i] = 0;
+               }*/
             
             fftwf_execute(x->fftplanL);
             fftwf_execute(x->fftplanR);
@@ -177,9 +174,9 @@ t_int *quadraTrans_tilde_perform(t_int *w){
                 x->fftinHrirL[i] = 1 / (x->currentImpulse[x->currentRow][0][i] + x->currentImpulse[x->currentRow][1][i]);
                 x->fftinHrirR[i] = 1 / (x->currentImpulse[x->currentRow][0][i] - x->currentImpulse[x->currentRow][1][i]);
             } /*else {
-                x->fftinHrirL[i] = 0;
-                x->fftinHrirL[i] = 0;
-            }*/
+               x->fftinHrirL[i] = 0;
+               x->fftinHrirL[i] = 0;
+               }*/
             fftwf_execute(x->fftplanHrirL);
             fftwf_execute(x->fftplanHrirR);
         }
@@ -283,28 +280,50 @@ void quadraTrans_tilde_dsp(t_quadraTrans_tilde *x, t_signal **sp){
 #pragma region db
     x->window = getbytes(sizeof(double)* x->fftsize);
     makewindow(x->window, sp[0]->s_n);
+    
     int power, base;
     x->sr = sp[0]->s_sr;
     char file[2000] = "";
     char str[8] = "";
     
+#ifdef WIN_VERSION
+    strcpy_s(file, _countof(file), x->path);
+    strcat_s(file, _countof(file), "/HRIR@");
+    sprintf_s(str, sizeof(str), "%d", (int)x->sr);
+    strcat_s(file, _countof(file), str);
+    strcat_s(file, _countof(file), ".db");
+    if (_access(file, F_OK) == -1) {
+#endif
+#ifdef PDMAC_VERSION
     strcpy(file,  x->path);
-    strcat(file,  "./HRIR@");
+    strcat(file,  "/HRIR@");
     sprintf(str,  "%d", (int)x->sr);
     strcat(file,  str);
     strcat(file,  ".db");
     if (access(file, F_OK) == -1) {
+#endif
         post("Warning: The database %s doesn't exist,\ntrying to use %s database", file, DBFILENAME);
-        
+            
+#ifdef WIN_VERSION
+        strcpy_s(file, _countof(file), x->path);
+        strcat_s(file, _countof(file), "/HRIR@");
+        sprintf_s(str, sizeof(file), "%d", 44100);
+        strcat_s(file, _countof(file), str);
+        strcat_s(file, _countof(file), ".db");
+        if (_access(file, F_OK) == -1) {
+#endif
+#ifdef PDMAC_VERSION
         strcpy(file, x->path);
         strcat(file,  "./HRIR@");
         sprintf(str,  "%d", 44100);
         strcat(file,  str);
         strcat(file,  ".db");
-        
-        if (access(file, F_OK) == -1)
+        if (access(file, F_OK) == -1){
+#endif
             post("Error: The database %s doesn't exist either, trying downloading from \n http://arts.u-aizu.ac.jp/research/hrir-with-distance-control/");
-        else post("Warning: Using %s at a sampling freq. of %d, results are not correct.", file, (int)x->sr);
+        } else {
+            post("Warning: Using %s at a sampling freq. of %d, results are not correct.", file, (int)x->sr);
+        }
     } else {
         if (x->connected == 1) {
             sqlite3_close(x->db);
@@ -365,105 +384,93 @@ void quadraTrans_tilde_dsp(t_quadraTrans_tilde *x, t_signal **sp){
             x->nPts = base;
             post("Number of tabs must be a power of 2\n", base, x->nPts);
         }
-        post("hrir~: Max. blocksize: 8192, Max. taps %d, currently using %d \n", base, x->nPts);
+        post("quadraTrans~: Max. blocksize: 8192, Max. taps %d, currently using %d \n", base, x->nPts);
     }
 #pragma endregion db
 }
-
-void quadraTrans_tilde_free(t_quadraTrans_tilde *x){
-    freebytes(x->window, sizeof(double)* x->fftsize);
-    
-    //inlet
-    inlet_free(x->x_in2);
-    inlet_free(x->x_in3);
-    
-    //outlet
-    outlet_free(x->x_outL);
-    outlet_free(x->x_outR);
-    outlet_free(x->x_outSL);
-    outlet_free(x->x_outSR);
-    
-    if (x->connected) {
-        sqlite3_close(x->db);
-        post("measurement database closed");
-        x->connected = 0;
-    }
-    
+            
+            void quadraTrans_tilde_free(t_quadraTrans_tilde *x){
+                freebytes(x->window, sizeof(double)* x->fftsize);
+                
+                //inlet
+                inlet_free(x->x_in2);
+                inlet_free(x->x_in3);
+                
+                //outlet
+                outlet_free(x->x_outL);
+                outlet_free(x->x_outR);
+                outlet_free(x->x_outSL);
+                outlet_free(x->x_outSR);
+                
+                if (x->connected) {
+                    sqlite3_close(x->db);
+                    post("measurement database closed");
+                    x->connected = 0;
+                }
+                
 #pragma region fftw_free
-    fftwf_free(x->fftoutL);
-    fftwf_free(x->fftinL);
-    fftwf_destroy_plan(x->fftplanL);
-    fftwf_free(x->fftoutR);
-    fftwf_free(x->fftinR);
-    fftwf_destroy_plan(x->fftplanR);
-    fftwf_free(x->fftoutInvL);
-    fftwf_free(x->fftinInvL);
-    fftwf_destroy_plan(x->fftplanInvL);
-    fftwf_free(x->fftoutInvR);
-    fftwf_free(x->fftinInvR);
-    fftwf_destroy_plan(x->fftplanInvR);
-    fftwf_free(x->fftoutHrirL);
-    fftwf_free(x->fftinHrirL);
-    fftwf_destroy_plan(x->fftplanHrirL);
-    fftwf_free(x->fftoutHrirR);
-    fftwf_free(x->fftinHrirR);
-    fftwf_destroy_plan(x->fftplanHrirR);
+                fftwf_free(x->fftoutL);
+                fftwf_free(x->fftinL);
+                fftwf_destroy_plan(x->fftplanL);
+                fftwf_free(x->fftoutR);
+                fftwf_free(x->fftinR);
+                fftwf_destroy_plan(x->fftplanR);
+                fftwf_free(x->fftoutInvL);
+                fftwf_free(x->fftinInvL);
+                fftwf_destroy_plan(x->fftplanInvL);
+                fftwf_free(x->fftoutInvR);
+                fftwf_free(x->fftinInvR);
+                fftwf_destroy_plan(x->fftplanInvR);
+                fftwf_free(x->fftoutHrirL);
+                fftwf_free(x->fftinHrirL);
+                fftwf_destroy_plan(x->fftplanHrirL);
+                fftwf_free(x->fftoutHrirR);
+                fftwf_free(x->fftinHrirR);
+                fftwf_destroy_plan(x->fftplanHrirR);
 #pragma endregion fftw_free
-    
-}
-
-void *quadraTrans_tilde_new(t_floatarg f){
-    t_quadraTrans_tilde *x = (t_quadraTrans_tilde *)pd_new(quadraTrans_tilde_class);
-    
-    x->f_quadraTrans = f;
-    
-    x->x_in2 = inlet_new(&x->x_obj, &x->x_obj.ob_pd, &s_signal, &s_signal);
-    x->x_in3 = floatinlet_new(&x->x_obj, &x->aziL);
-    
-    x->x_outL  = outlet_new(&x->x_obj, gensym("signal"));
-    x->x_outR  = outlet_new(&x->x_obj, gensym("signal"));
-    x->x_outSL = outlet_new(&x->x_obj, gensym("signal"));
-    x->x_outSR = outlet_new(&x->x_obj, gensym("signal"));
-    
+                
+            }
+            
+            void *quadraTrans_tilde_new(t_floatarg f){
+                t_quadraTrans_tilde *x = (t_quadraTrans_tilde *)pd_new(quadraTrans_tilde_class);
+                
+                x->f_quadraTrans = f;
+                
+                //inlet
+                x->x_in2 = inlet_new(&x->x_obj, &x->x_obj.ob_pd, &s_signal, &s_signal);
+                x->x_in3 = floatinlet_new(&x->x_obj, &x->aziL);
+                
+                //outlet
+                x->x_outL  = outlet_new(&x->x_obj, gensym("signal"));
+                x->x_outR  = outlet_new(&x->x_obj, gensym("signal"));
+                x->x_outSL = outlet_new(&x->x_obj, gensym("signal"));
+                x->x_outSR = outlet_new(&x->x_obj, gensym("signal"));
+                
 #pragma region init
-    x->azi = 45;
-    x->ele = 0;
-    x->dis = 140;
-    x->nPtsInDb = 300;
-    x->elevation = 0;
-    x->azimuth = 0;
-    x->distance = 20;
-    
-    x->nPts = 512;
-    
-    for (int i = 0; i < MAX_N_POINTS; i++) {
-        x->convBufferC[i] = 0;
-        x->convBufferI[i] = 0;
-        x->previousImpulse[0][i] = 0;
-        x->previousImpulse[1][i] = 0;
-        
-        x->OUT[0][i] = 0;
-        x->OUT[1][i] = 0;
-        
-        x->crossCoef[i] = 1.0 * i / (MAX_BLOCKSIZE - 1.0);
-        x->crossCoef[i] = cos((MyPI / 2) * ((float)i / (MAX_BLOCKSIZE - 1.0)));
-    }
-    
-    strcat(x->path, canvas_getdir(canvas_getcurrent())->s_name);
-    x->connected = 0;
+                x->azi = 45;
+                x->ele = 0;
+                x->dis = 140;
+                x->nPtsInDb = 300;
+                x->elevation = 0;
+                x->azimuth = 0;
+                x->distance = 20;
+                x->nPts = 512;
+                
+                strcat(x->path, canvas_getdir(canvas_getcurrent())->s_name);
+                x->connected = 0;
 #pragma endregion init
-    
-    return (void *)x;
-}
-
-void quadraTrans_tilde_setup(void) {
-    quadraTrans_tilde_class = class_new(gensym("quadraTrans~"),
-                                        (t_newmethod)quadraTrans_tilde_new,
-                                        (t_method)quadraTrans_tilde_free,
-                                        sizeof(t_quadraTrans_tilde),
-                                        CLASS_DEFAULT,
-                                        A_DEFSYMBOL, A_DEFSYMBOL, 0);
-    
-    class_addmethod(quadraTrans_tilde_class, (t_method)quadraTrans_tilde_dsp, gensym("dsp"), 0);
-    CLASS_MAINSIGNALIN(quadraTrans_tilde_class, t_quadraTrans_tilde, f);
-}
+                
+                return (void *)x;
+            }
+            
+            void quadraTrans_tilde_setup(void) {
+                quadraTrans_tilde_class = class_new(gensym("quadraTrans~"),
+                                                    (t_newmethod)quadraTrans_tilde_new,
+                                                    (t_method)quadraTrans_tilde_free,
+                                                    sizeof(t_quadraTrans_tilde),
+                                                    CLASS_DEFAULT,
+                                                    A_DEFSYMBOL, A_DEFSYMBOL, 0);
+                
+                class_addmethod(quadraTrans_tilde_class, (t_method)quadraTrans_tilde_dsp, gensym("dsp"), 0);
+                CLASS_MAINSIGNALIN(quadraTrans_tilde_class, t_quadraTrans_tilde, f);
+            }
