@@ -142,7 +142,7 @@ void quicksort(t_quadraTrans_tilde *x, int n) {
 * azimuths between 0 and 360\[\degree\].
 * @param x A pointer to the inner structure of the hrir~ object.
 */
-static void validatePoint(t_quadraTrans_tilde *x) {
+/*static void validatePoint(t_quadraTrans_tilde *x) {
     if (x->dis < 20) {
         x->dis = 20;
     }
@@ -160,7 +160,7 @@ static void validatePoint(t_quadraTrans_tilde *x) {
         x->azi = (int)(x->azi) % 360;
         x->azi = (x->azi<0) ? x->azi + 360 : x->azi;
     }
-}
+}*/
 
 /** finds the 2 closest measured distances from a given point
 * @param x A pointer to the inner structure of the hrir~ object.
@@ -703,7 +703,7 @@ static void testCoplan_lin(t_quadraTrans_tilde *x) {
 /**
 Calculates the convolution between two arrays (the signal and the hrir)
 */
-static void convolve(t_quadraTrans_tilde *x, int blocksize, t_float *audio_in, t_float *audio_outL, t_float *audio_outR) {
+/*static void convolve(t_quadraTrans_tilde *x, int blocksize, t_float *audio_in, t_float *audio_outL, t_float *audio_outR) {
     float convSumI, convSumC; /// convolution sum of the ipsilateral and contralateral sides
     float inSample;
     int blockScale = MAX_BLOCKSIZE / blocksize;
@@ -739,4 +739,4 @@ static void convolve(t_quadraTrans_tilde *x, int blocksize, t_float *audio_in, t
             *audio_outL++ = convSumI / 3;
         }
     }
-}
+}*/
