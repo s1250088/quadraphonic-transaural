@@ -307,14 +307,14 @@ void quadraTrans_tilde_dsp(t_quadraTrans_tilde *x, t_signal **sp){
     char file[2000] = "";
     char str[8] = "";
     
-/*#ifdef WIN_VERSION
+#ifdef WIN_VERSION
     strcpy_s(file, _countof(file), x->path);
     strcat_s(file, _countof(file), "/HRIR@");
     sprintf_s(str, sizeof(str), "%d", (int)x->sr);
     strcat_s(file, _countof(file), str);
     strcat_s(file, _countof(file), ".db");
     if (_access(file, F_OK) == -1) {
-#endif*/
+#endif
 #ifdef PDMAC_VERSION
     strcpy(file,  x->path);
     strcat(file,  "/HRIR@");
@@ -325,14 +325,14 @@ void quadraTrans_tilde_dsp(t_quadraTrans_tilde *x, t_signal **sp){
 #endif
         post("Warning: The database %s doesn't exist,\ntrying to use %s database", file, DBFILENAME);
             
-/*#ifdef WIN_VERSION
+#ifdef WIN_VERSION
         strcpy_s(file, _countof(file), x->path);
         strcat_s(file, _countof(file), "/HRIR@");
         sprintf_s(str, sizeof(file), "%d", 44100);
         strcat_s(file, _countof(file), str);
         strcat_s(file, _countof(file), ".db");
         if (_access(file, F_OK) == -1) {
-#endif*/
+#endif
 #ifdef PDMAC_VERSION
         strcpy(file, x->path);
         strcat(file,  "./HRIR@");
