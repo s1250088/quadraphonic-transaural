@@ -73,7 +73,6 @@ typedef struct _quadraTrans_tilde{
     char *zErrMsg;
     char *zHrtfErrMsg;
     
-    //t_float previousImpulse[2][MAX_N_POINTS];
     t_float currentImpulse[9][2][MAX_N_POINTS];
     int currentRow;
     
@@ -115,29 +114,6 @@ typedef struct _quadraTrans_tilde{
 
 #include "quadraTransFunctions.h"
 
-static void makewindow(double *w, int n) {
-    int i;
-    double xshift = n / 2.0;
-    double x;
-    for (i = 0; i < n; i++) {
-        x = (i - xshift) / xshift;
-        w[i] = 0.5 * (1 + cos(MyPI * x));
-    }
-}
-
-int nextPo2(t_float n){
-    int i=0, result;
-    
-    while(1){
-        if(n <= powf(2.0, (float)i)){
-            result = (int)powf(2, i);
-            break;
-        }
-        i++;
-    }
-    return result;
-}
-
 t_int *quadraTrans_tilde_perform(t_int *w){
     t_quadraTrans_tilde *x = (t_quadraTrans_tilde *)(w[1]);
     t_sample  *inXL   =  (t_sample *)(w[2]); //inlet 1
@@ -154,24 +130,7 @@ t_int *quadraTrans_tilde_perform(t_int *w){
     float mux = 1.0 / x->fftsize;
     x->nbins = x->fftsize/2 + 1;
     
-    if (x->connected == 1) {/*
-        // Save last values to skip unnecessary computations
-        x->prevAzi = x->azi;
-        x->prevEle = x->ele;
-        x->prevDis = x->dis;
-        
-        x->azi = roundf(x->azimuth);
-        x->ele = roundf(x->elevation);
-        x->dis = roundf(x->distance);
-        if ((x->prevAzi == x->azi) && (x->prevEle == x->ele) && (x->prevDis == x->dis)) {
-            //Do not find the filter
-        } else {
-            rangeDis(x);
-            rangeEle(x);
-            rangeAzi(x);
-            formSet(x);
-            testCoplan_lin(x);
-        }*/
+    if (x->connected == 1) {
         
 #pragma region main
         for (i = 0; i < x->fftsize; i++) {
