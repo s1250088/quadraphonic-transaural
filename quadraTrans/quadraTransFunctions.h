@@ -165,7 +165,7 @@ void quicksort(t_quadraTrans_tilde *x, int n) {
 /** finds the 2 closest measured distances from a given point
 * @param x A pointer to the inner structure of the hrir~ object.
 */
-static void rangeDis(t_quadraTrans_tilde *x) {
+/*static void rangeDis(t_quadraTrans_tilde *x) {
     t_float value;
     x->on[0] = -1;
     value = 10 * ((int)x->dis / 10);
@@ -179,12 +179,12 @@ static void rangeDis(t_quadraTrans_tilde *x) {
         x->on[0] = 1;
         x->rs[0] = x->dis;
     }
-}
+}*/
 
 /** finds the 2 closest measured elevations from a given point
 * @param x A pointer to the inner structure of the hrir~ object.
 */
-static void rangeEle(t_quadraTrans_tilde *x) {
+/*static void rangeEle(t_quadraTrans_tilde *x) {
     t_float value;
     x->on[1] = -1;
     value = 10 * ((int)x->ele / 10);
@@ -207,12 +207,12 @@ static void rangeEle(t_quadraTrans_tilde *x) {
         x->on[1] = 1;
         x->es[0] = x->ele;
     }
-}
+}*/
 
 /** finds the 2 closest measured azimuths from a given point
 * @param x A pointer to the inner structure of the hrir~ object.
 */
-static void rangeAzi(t_quadraTrans_tilde *x) {
+/*static void rangeAzi(t_quadraTrans_tilde *x) {
     t_float value;
     x->on[2] = -1;
     value = 5 * ((int)x->azi / 5);
@@ -226,13 +226,13 @@ static void rangeAzi(t_quadraTrans_tilde *x) {
         x->on[2] = 1;
         x->as[0] = x->azi;
     }
-}
+}*/
 
 /** form the candidate set of measurements for convolution
 * @param x A pointer to the inner structure of the hrir~ object.
 * to do: take care of the computation when the measurement is between 80 and 90 degrees of elevation
 */
-static void formSet(t_quadraTrans_tilde *x) {
+/*static void formSet(t_quadraTrans_tilde *x) {
     int i, j, k;
     int counter = 0;
     int limR = 0, limE = 0, limA = 0;
@@ -251,12 +251,12 @@ static void formSet(t_quadraTrans_tilde *x) {
         }
     }
     x->n_meas = counter;
-}
+}*/
 
 /**
 the db callback used to load into arrays the impulse response
 */
-static int retrieveFromDd(t_quadraTrans_tilde *x, int argc, char **argv, char **azColName) {
+/*static int retrieveFromDd(t_quadraTrans_tilde *x, int argc, char **argv, char **azColName) {
     int i, j;
     float tmp[MAX_N_POINTS * 2];
     for (i = 0; i<argc; i++) {
@@ -273,14 +273,14 @@ static int retrieveFromDd(t_quadraTrans_tilde *x, int argc, char **argv, char **
             }
         }
     }
-    return 0;
-}
+ return 0;
+}*/
 
 /**
 Find a measurement in the database since only the right ear measurements are stored, angles greater than 180 are transformed.
 * r,e,a, must be valid measures
 */
-static void findFilter(t_quadraTrans_tilde *x, float r, float e, float a) {
+/*static void findFilter(t_quadraTrans_tilde *x, float r, float e, float a) {
     int error;
     char query[2000];
     if (a > 180) {
@@ -316,13 +316,13 @@ static void findFilter(t_quadraTrans_tilde *x, float r, float e, float a) {
             checkError(x, "in retrieving db rows. ");
         }
     }
-}
+}*/
 
 /** this  function computes the linear interpolation between a and b, given a
 collinear point q. The interpolation is done via lerp. The points q, a, b are in (range,elevation,azimuth) form.
 @param x A pointer to the inner structure of the hrir~ object
 */
-static void linInterp(t_quadraTrans_tilde *x) {
+/*static void linInterp(t_quadraTrans_tilde *x) {
     int i;
     t_float weight[3];
     //t_float itd[2];
@@ -342,14 +342,14 @@ static void linInterp(t_quadraTrans_tilde *x) {
         x->currentImpulse[8][1][i] = (x->currentImpulse[0][1][i] + x->currentImpulse[1][1][i]) / weight[2];
     }
     //x->currentItd = (weight[0]*itd[1] + weight[1]*itd[0]) / weight[2];
-}
+}*/
 
 /** This function computes the barycentric interpolation between three points
 given a coplanar point q. The interpolation is done via lerp.
 The points are in (range,elevation,azimuth) form.
 @param x A pointer to the inner structure of the hrir~ object
 */
-static void baryInterp(t_quadraTrans_tilde *x) {
+/*static void baryInterp(t_quadraTrans_tilde *x) {
     int i;
     t_float distances[6]; ///distances from q to A, B, C, then AB, AC, BC.
     t_float weight[4]; ///ABQ, ACQ, BCQ, ABC.
@@ -390,7 +390,7 @@ static void baryInterp(t_quadraTrans_tilde *x) {
     }
 
     //x->currentItd = (weight[0]*itd[2] + weight[1]*itd[1] + weight[2]*itd[0]) / weight[3];
-}
+}*/
 
 /** This function computes the volume V of a tetrahedron defined by points selected according to the index i
 @param i An integer indicating the index to choose the points for the volume
@@ -487,7 +487,7 @@ given a point q that is included. The interpolation is done via lerp.
 The points are in (range,elevation,azimuth) form.
 @param x A pointer to the inner structure of the hrir~ object
 */
-static void simplexInterp(t_quadraTrans_tilde *x) {
+/*static void simplexInterp(t_quadraTrans_tilde *x) {
     int i;
     t_float weight[5];
     //t_float itd[4];
@@ -528,7 +528,7 @@ static void simplexInterp(t_quadraTrans_tilde *x) {
     //                 weight[2]*itd[1] +
     //                 weight[3]*itd[0]) / weight[4];
 
-}
+}*/
 
 /** This function select the closest 4 measurement around the point and invoke the interpolation between them. The points are indexed like:
 % select simplex
@@ -541,7 +541,7 @@ static void simplexInterp(t_quadraTrans_tilde *x) {
 % 0___1
 @param x A pointer to the inner structure of the hrir~ object
 */
-static void tetraInterp(t_quadraTrans_tilde *x) {
+/*static void tetraInterp(t_quadraTrans_tilde *x) {
     int idx;
     idx = computeSquareDistance(x, 8, 0); //find the closest measurement
     switch (idx) {
@@ -673,13 +673,13 @@ static void tetraInterp(t_quadraTrans_tilde *x) {
         printf("Invalid\n");
     }
 
-}
+}*/
 
 
 /** This function calls the adequated interpolation depending on the independence of coordinates between the point in question and the measurements.
 * @param x A pointer to the inner structure of the hrir~ object.
 */
-static void testCoplan_lin(t_quadraTrans_tilde *x) {
+/*static void testCoplan_lin(t_quadraTrans_tilde *x) {
     switch (x->n_meas) {
     case 1:
         x->currentRow = 8;
@@ -697,7 +697,7 @@ static void testCoplan_lin(t_quadraTrans_tilde *x) {
     default:
         break;
     }
-}
+}*/
 
 
 /**

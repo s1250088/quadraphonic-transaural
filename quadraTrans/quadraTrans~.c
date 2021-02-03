@@ -111,10 +111,6 @@ typedef struct _quadraTrans_tilde{
     t_int connected;
     t_int rc;
     
-    sqlite3 *hrtfDb;
-    t_int hrtfConnected;
-    t_int hrtfRc;
-    
 }t_quadraTrans_tilde;
 
 #include "quadraTransFunctions.h"
@@ -158,7 +154,7 @@ t_int *quadraTrans_tilde_perform(t_int *w){
     float mux = 1.0 / x->fftsize;
     x->nbins = x->fftsize/2 + 1;
     
-    if (x->connected == 1) {
+    if (x->connected == 1) {/*
         // Save last values to skip unnecessary computations
         x->prevAzi = x->azi;
         x->prevEle = x->ele;
@@ -175,7 +171,7 @@ t_int *quadraTrans_tilde_perform(t_int *w){
             rangeAzi(x);
             formSet(x);
             testCoplan_lin(x);
-        }
+        }*/
         
 #pragma region main
         for (i = 0; i < x->fftsize; i++) {
@@ -224,7 +220,7 @@ t_int *quadraTrans_tilde_perform(t_int *w){
                 if(az<360) az += 360;
                 else if(az>360) az = az%360;
                 
-                if(315<az || az<45){
+                if(315<az && az<45){
                     *outL++ = x->fftoutInvL[i] * mux;
                     *outR++ = x->fftoutInvR[i] * mux;
                 }
@@ -232,7 +228,7 @@ t_int *quadraTrans_tilde_perform(t_int *w){
                     *outL++  = x->fftoutInvL[i] * mux;
                     *outSR++ = x->fftoutInvR[i] * mux;
                 }
-                else if(45<az || az<135){
+                else if(45<az && az<135){
                     *outR++  = x->fftoutInvL[i] * mux;
                     *outSR++ = x->fftoutInvR[i] * mux;
                 }
@@ -240,7 +236,7 @@ t_int *quadraTrans_tilde_perform(t_int *w){
                     *outR++  = x->fftoutInvL[i] * mux;
                     *outSL++ = x->fftoutInvR[i] * mux;
                 }
-                else if(135<az || az<225){
+                else if(135<az && az<225){
                     *outSR++ = x->fftoutInvL[i] * mux;
                     *outSL++ = x->fftoutInvR[i] * mux;
                 }
@@ -248,7 +244,7 @@ t_int *quadraTrans_tilde_perform(t_int *w){
                     *outSR++ = x->fftoutInvL[i] * mux;
                     *outL++  = x->fftoutInvR[i] * mux;
                 }
-                else if(225<az || az<315){
+                else if(225<az && az<315){
                     *outSL++ = x->fftoutInvL[i] * mux;
                     *outL++  = x->fftoutInvR[i] * mux;
                 }
@@ -269,34 +265,6 @@ void quadraTrans_tilde_dsp(t_quadraTrans_tilde *x, t_signal **sp){
             sp[0]->s_vec, sp[1]->s_vec,
             sp[2]->s_vec, sp[3]->s_vec, sp[4]->s_vec, sp[5]->s_vec,
             sp[0]->s_n);
-    
-#pragma region fftw_set
-    //set L
-    x->fftinL = (float *) fftwf_malloc(sizeof(float) * x->fftsize);
-    x->fftoutL = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * x->fftsize);
-    x->fftplanL = fftwf_plan_dft_r2c_1d(x->fftsize, x->fftinL, x->fftoutL, FFTW_MEASURE);
-    //set R
-    x->fftinR = (float *) fftwf_malloc(sizeof(float) * x->fftsize);
-    x->fftoutR = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * x->fftsize);
-    x->fftplanR = fftwf_plan_dft_r2c_1d((x->fftsize), x->fftinR, x->fftoutR, FFTW_MEASURE);
-    //set HrirL
-    x->fftinHrirL = (float *) fftwf_malloc(sizeof(float) * x->fftsize);
-    x->fftoutHrirL = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * x->fftsize);
-    x->fftplanHrirL = fftwf_plan_dft_r2c_1d((x->fftsize), x->fftinHrirL, x->fftoutHrirL, FFTW_MEASURE);
-    //set HrirR
-    x->fftinHrirR = (float *) fftwf_malloc(sizeof(float) * x->fftsize);
-    x->fftoutHrirR = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * x->fftsize);
-    x->fftplanHrirR = fftwf_plan_dft_r2c_1d((x->fftsize), x->fftinHrirR, x->fftoutHrirR, FFTW_MEASURE);
-    //set invL
-    x->fftinInvL = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * x->fftsize);
-    x->fftoutInvL = (float *) fftwf_malloc(sizeof(float) * x->fftsize);
-    x->fftplanInvL = fftwf_plan_dft_c2r_1d((x->fftsize), x->fftinInvL, x->fftoutInvL, FFTW_MEASURE);
-    //set invR
-    x->fftinInvR = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * x->fftsize);
-    x->fftoutInvR = (float *) fftwf_malloc(sizeof(float) * x->fftsize);
-    x->fftplanInvR = fftwf_plan_dft_c2r_1d((x->fftsize), x->fftinInvR, x->fftoutInvR, FFTW_MEASURE);
-    
-#pragma endregion fftw_set
     
 #pragma region db
     x->window = getbytes(sizeof(double)* x->fftsize);
@@ -323,6 +291,7 @@ void quadraTrans_tilde_dsp(t_quadraTrans_tilde *x, t_signal **sp){
     strcat(file,  ".db");
     if (access(file, F_OK) == -1) {
 #endif
+        // file doesn't exist
         post("Warning: The database %s doesn't exist,\ntrying to use %s database", file, DBFILENAME);
             
 #ifdef WIN_VERSION
@@ -335,7 +304,7 @@ void quadraTrans_tilde_dsp(t_quadraTrans_tilde *x, t_signal **sp){
 #endif
 #ifdef PDMAC_VERSION
         strcpy(file, x->path);
-        strcat(file,  "./HRIR@");
+        strcat(file,  "/HRIR@");
         sprintf(str,  "%d", 44100);
         strcat(file,  str);
         strcat(file,  ".db");
@@ -412,6 +381,34 @@ void quadraTrans_tilde_dsp(t_quadraTrans_tilde *x, t_signal **sp){
         post("quadraTrans~: Max. blocksize: 8192, Max. taps %d, currently using %d \n", base, x->nPts);
     }
 #pragma endregion db
+        
+#pragma region fftw_set
+        //set L
+        x->fftinL = fftwf_alloc_real(x->fftsize);
+        x->fftoutL = fftwf_alloc_complex(x->fftsize);
+        x->fftplanL = fftwf_plan_dft_r2c_1d(x->fftsize, x->fftinL, x->fftoutL, FFTW_MEASURE);
+        //set R
+        x->fftinR = fftwf_alloc_real(x->fftsize);
+        x->fftoutR = fftwf_alloc_complex(x->fftsize);
+        x->fftplanR = fftwf_plan_dft_r2c_1d((x->fftsize), x->fftinR, x->fftoutR, FFTW_MEASURE);
+        //set HrirL
+        x->fftinHrirL = fftwf_alloc_real(x->fftsize);
+        x->fftoutHrirL = fftwf_alloc_complex(x->fftsize);
+        x->fftplanHrirL = fftwf_plan_dft_r2c_1d((x->fftsize), x->fftinHrirL, x->fftoutHrirL, FFTW_MEASURE);
+        //set HrirR
+        x->fftinHrirR = fftwf_alloc_real(x->fftsize);
+        x->fftoutHrirR = fftwf_alloc_complex(x->fftsize);
+        x->fftplanHrirR = fftwf_plan_dft_r2c_1d((x->fftsize), x->fftinHrirR, x->fftoutHrirR, FFTW_MEASURE);
+        //set invL
+        x->fftinInvL = fftwf_alloc_complex(x->fftsize);
+        x->fftoutInvL = fftwf_alloc_real(x->fftsize);
+        x->fftplanInvL = fftwf_plan_dft_c2r_1d((x->fftsize), x->fftinInvL, x->fftoutInvL, FFTW_MEASURE);
+        //set invR
+        x->fftinInvR = fftwf_alloc_complex(x->fftsize);
+        x->fftoutInvR = fftwf_alloc_real(x->fftsize);
+        x->fftplanInvR = fftwf_plan_dft_c2r_1d((x->fftsize), x->fftinInvR, x->fftoutInvR, FFTW_MEASURE);
+        
+#pragma endregion fftw_set
 }
         
 void quadraTrans_tilde_free(t_quadraTrans_tilde *x){
