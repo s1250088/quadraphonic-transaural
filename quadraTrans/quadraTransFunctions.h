@@ -214,16 +214,6 @@ float theVolume(t_quadraTrans_tilde *x, int n) {
     return fabs(deter) / 6;
 }
 
-static void makewindow(double *w, int n) {
-    int i;
-    double xshift = n / 2.0;
-    double x;
-    for (i = 0; i < n; i++) {
-        x = (i - xshift) / xshift;
-        w[i] = 0.5 * (1 + cos(MyPI * x));
-    }
-}
-
 int nextPo2(t_float n){
     int i=0, result;
     
