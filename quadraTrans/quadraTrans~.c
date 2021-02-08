@@ -65,7 +65,6 @@ typedef struct _quadraTrans_tilde{
     t_float prevAzi; //azimuth value
     t_float prevEle; //elevation value
     t_float prevDis; //distance value
-    double *window;
     float hrtf[MAX_N_POINTS];
     
     t_float OUT[2][MAX_N_POINTS];
@@ -122,17 +121,15 @@ t_int *quadraTrans_tilde_perform(t_int *w){
     t_float  *outSL  =  (t_float *)(w[5]); //outlet 3
     t_float  *outR   =  (t_float *)(w[6]); //outlet 2
     t_float  *outL   =  (t_float *)(w[7]); //outlet 1
-    int   blocksize  =        (int)(w[8]);
+    int   blocksize   =         (int)(w[8]);
     
     int i;
     float mux = 1.0 / x->fftsize;
     x->nbins = x->fftsize/2 + 1;
     
-#pragma region main
     if (x->connected == 1) {
         
-        float az = roundf(x->aziL);
-        
+#pragma region main
         for (i = 0; i < x->fftsize; i++) {
             if(i < blocksize){
                 x->fftinL[i] = (inXL[i] + inXR[i])/2;
@@ -175,54 +172,38 @@ t_int *quadraTrans_tilde_perform(t_int *w){
                 tmp = x->fftoutInvL[i];
                 x->fftoutInvL[i] += x->fftoutInvR[i];
                 x->fftoutInvR[i] = tmp - x->fftoutInvR[i];
-                
-                if(315.0<az && az<45.0){
-                    *outL++  = x->fftoutInvL[i] * mux;
-                    *outR++  = x->fftoutInvR[i] * mux;
-                    *outSL++ = 0;
-                    *outSR++ = 0;
+                            
+                if(315<x->aziL && x->aziL<45){
+                    *outL++ = x->fftoutInvL[i] * mux;
+                    *outR++ = x->fftoutInvR[i] * mux;
                 }
-                else if(az==45.0){
+                else if(x->aziL==45){
                     *outL++  = x->fftoutInvL[i] * mux;
-                    *outR++  = 0;
-                    *outSL++ = 0;
                     *outSR++ = x->fftoutInvR[i] * mux;
                 }
-                else if(45.0<az && az<135.0){
-                    *outL++  = 0;
+                else if(45<x->aziL && x->aziL<135){
                     *outR++  = x->fftoutInvL[i] * mux;
-                    *outSL++ = 0;
                     *outSR++ = x->fftoutInvR[i] * mux;
                 }
-                else if(az==135.0){
-                    *outL++  = 0;
+                else if(x->aziL==135){
                     *outR++  = x->fftoutInvL[i] * mux;
                     *outSL++ = x->fftoutInvR[i] * mux;
-                    *outSR++ = 0;
                 }
-                else if(135.0<az && az<225.0){
-                    *outL++  = 0;
-                    *outR++  = 0;;
+                else if(135<x->aziL && x->aziL<225){
+                    *outSR++ = x->fftoutInvL[i] * mux;
                     *outSL++ = x->fftoutInvR[i] * mux;
-                    *outSR++ = x->fftoutInvL[i] * mux;
                 }
-                else if(az==225.0){
-                    *outL++  = x->fftoutInvR[i] * mux;
-                    *outR++  = 0;
-                    *outSL++ = 0;
+                else if(x->aziL==225){
                     *outSR++ = x->fftoutInvL[i] * mux;
-                }
-                else if(225.0<az && az<315.0){
                     *outL++  = x->fftoutInvR[i] * mux;
-                    *outR++  = 0;
+                }
+                else if(225<x->aziL && x->aziL<315){
                     *outSL++ = x->fftoutInvL[i] * mux;
-                    *outSR++ = 0;
+                    *outL++  = x->fftoutInvR[i] * mux;
                 }
-                else if(az==315.0){
-                    *outL++  = 0;
+                else if(x->aziL==315){
+                    *outSL++ = x->fftoutInvL[i] * mux;
                     *outR++  = x->fftoutInvR[i] * mux;
-                    *outSL++ = x->fftoutInvL[i] * mux;
-                    *outSR++ = 0;
                 }
             }
         }
@@ -344,45 +325,43 @@ void quadraTrans_tilde_dsp(t_quadraTrans_tilde *x, t_signal **sp){
             post("Number of tabs must be a power of 2\n", base, x->nPts);
         }
         
+        x->convsize = x->nPts + sp[0]->s_n -1;
+        x->fftsize = nextPo2(x->convsize);
+        
         post("quadraTrans~: Max. blocksize: 8192, Max. taps %d, currently using %d \n", base, x->nPts);
     }
 #pragma endregion db
         
-    x->convsize = x->nPts + sp[0]->s_n -1;
-    x->fftsize = nextPo2(x->convsize);
-    
 #pragma region fftw_set
-    //set L
-    x->fftinL = fftwf_alloc_real(x->fftsize);
-    x->fftoutL = fftwf_alloc_complex(x->fftsize);
-    x->fftplanL = fftwf_plan_dft_r2c_1d(x->fftsize, x->fftinL, x->fftoutL, FFTW_MEASURE);
-    //set R
-    x->fftinR = fftwf_alloc_real(x->fftsize);
-    x->fftoutR = fftwf_alloc_complex(x->fftsize);
-    x->fftplanR = fftwf_plan_dft_r2c_1d((x->fftsize), x->fftinR, x->fftoutR, FFTW_MEASURE);
-    //set HrirL
-    x->fftinHrirL = fftwf_alloc_real(x->fftsize);
-    x->fftoutHrirL = fftwf_alloc_complex(x->fftsize);
-    x->fftplanHrirL = fftwf_plan_dft_r2c_1d((x->fftsize), x->fftinHrirL, x->fftoutHrirL, FFTW_MEASURE);
-    //set HrirR
-    x->fftinHrirR = fftwf_alloc_real(x->fftsize);
-    x->fftoutHrirR = fftwf_alloc_complex(x->fftsize);
-    x->fftplanHrirR = fftwf_plan_dft_r2c_1d((x->fftsize), x->fftinHrirR, x->fftoutHrirR, FFTW_MEASURE);
-    //set invL
-    x->fftinInvL = fftwf_alloc_complex(x->fftsize);
-    x->fftoutInvL = fftwf_alloc_real(x->fftsize);
-    x->fftplanInvL = fftwf_plan_dft_c2r_1d((x->fftsize), x->fftinInvL, x->fftoutInvL, FFTW_MEASURE);
-    //set invR
-    x->fftinInvR = fftwf_alloc_complex(x->fftsize);
-    x->fftoutInvR = fftwf_alloc_real(x->fftsize);
-    x->fftplanInvR = fftwf_plan_dft_c2r_1d((x->fftsize), x->fftinInvR, x->fftoutInvR, FFTW_MEASURE);
-    
+        //set L
+        x->fftinL = fftwf_alloc_real(x->fftsize);
+        x->fftoutL = fftwf_alloc_complex(x->fftsize);
+        x->fftplanL = fftwf_plan_dft_r2c_1d(x->fftsize, x->fftinL, x->fftoutL, FFTW_MEASURE);
+        //set R
+        x->fftinR = fftwf_alloc_real(x->fftsize);
+        x->fftoutR = fftwf_alloc_complex(x->fftsize);
+        x->fftplanR = fftwf_plan_dft_r2c_1d((x->fftsize), x->fftinR, x->fftoutR, FFTW_MEASURE);
+        //set HrirL
+        x->fftinHrirL = fftwf_alloc_real(x->fftsize);
+        x->fftoutHrirL = fftwf_alloc_complex(x->fftsize);
+        x->fftplanHrirL = fftwf_plan_dft_r2c_1d((x->fftsize), x->fftinHrirL, x->fftoutHrirL, FFTW_MEASURE);
+        //set HrirR
+        x->fftinHrirR = fftwf_alloc_real(x->fftsize);
+        x->fftoutHrirR = fftwf_alloc_complex(x->fftsize);
+        x->fftplanHrirR = fftwf_plan_dft_r2c_1d((x->fftsize), x->fftinHrirR, x->fftoutHrirR, FFTW_MEASURE);
+        //set invL
+        x->fftinInvL = fftwf_alloc_complex(x->fftsize);
+        x->fftoutInvL = fftwf_alloc_real(x->fftsize);
+        x->fftplanInvL = fftwf_plan_dft_c2r_1d((x->fftsize), x->fftinInvL, x->fftoutInvL, FFTW_MEASURE);
+        //set invR
+        x->fftinInvR = fftwf_alloc_complex(x->fftsize);
+        x->fftoutInvR = fftwf_alloc_real(x->fftsize);
+        x->fftplanInvR = fftwf_plan_dft_c2r_1d((x->fftsize), x->fftinInvR, x->fftoutInvR, FFTW_MEASURE);
+        
 #pragma endregion fftw_set
 }
         
 void quadraTrans_tilde_free(t_quadraTrans_tilde *x){
-    freebytes(x->window, sizeof(double)* x->fftsize);
-    
     //inlet
     inlet_free(x->x_in2);
     inlet_free(x->x_in3);
@@ -438,11 +417,14 @@ void *quadraTrans_tilde_new(t_floatarg f){
     x->x_outSR = outlet_new(&x->x_obj, gensym("signal"));
     
 #pragma region init
-    x->azi = 0;
+    x->azi = 45;
     x->ele = 0;
-    x->dis = 20;
+    x->dis = 140;
     x->nPtsInDb = 300;
-    x->nPts = DEFAULT_N_POINTS;
+    x->elevation = 0;
+    x->azimuth = 0;
+    x->distance = 20;
+    x->nPts = 512;
     
     strcat(x->path, canvas_getdir(canvas_getcurrent())->s_name);
     x->connected = 0;
@@ -457,7 +439,7 @@ void quadraTrans_tilde_setup(void) {
                                         (t_method)quadraTrans_tilde_free,
                                         sizeof(t_quadraTrans_tilde),
                                         CLASS_DEFAULT,
-                                        A_DEFFLOAT, 0);
+                                        A_DEFFLOAT, A_DEFFLOAT, 0);
     
     class_addmethod(quadraTrans_tilde_class, (t_method)quadraTrans_tilde_dsp, gensym("dsp"), 0);
     CLASS_MAINSIGNALIN(quadraTrans_tilde_class, t_quadraTrans_tilde, f);
