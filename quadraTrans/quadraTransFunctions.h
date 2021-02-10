@@ -12,15 +12,6 @@
 #include <io.h>
 #endif
 
-#define round(x) ((x) < LONG_MIN-0.5 ||(x) > LONG_MAX+0.5 ?overflowError((x)):((x)>=0?(long)((x)+0.5):(long)((x)-0.5)))
-
-/**
-Used in round() for calculating the overflow error
-*/
-long overflowError(float y) {
-    return (y>0.0) ? round(y - LONG_MAX) : round(y + LONG_MAX);
-}
-
 /**
 This function returns 0 if the argument is not a power of 2
 */
@@ -38,12 +29,6 @@ void checkError(t_quadraTrans_tilde *x, char *msg) {
     }
 }
 
-float Float(char unsigned *const p) {
-    float val;
-    memcpy(&val, p, sizeof val);
-    return val;
-}
-
 /**
  the db callback used to load into arrays the impulse response
  */
@@ -51,7 +36,7 @@ static int retrieveFromDd(t_quadraTrans_tilde *x, int argc, char **argv, char **
     int i,j;
     float tmp[x->nPtsInDb * sizeof(float)];
     for(i=0; i<argc; i++) {
-        if (!strcmp(azColName[i],"quadraTrans")) {
+        if (!strcmp(azColName[i],"hrir")) {
             memcpy(&tmp, argv[i], x->nPtsInDb * sizeof(float));
             for (j=0; j < x->nPts; j++) {
                 x->currentImpulse[0][j]=tmp[j];

@@ -106,8 +106,8 @@ t_int *quadraTrans_tilde_perform(t_int *w){
                 x->fftinL[i] = (inXL[i] + inXR[i])/2;
                 x->fftinR[i] = (inXL[i] - inXR[i])/2;
             } else { // blocksize <= i <fftsize
-                x->fftinL[i] = 0.0;
-                x->fftinR[i] = 0.0;
+                x->fftinL[i] = 0;
+                x->fftinR[i] = 0;
             }
         }
         
@@ -147,50 +147,50 @@ t_int *quadraTrans_tilde_perform(t_int *w){
                 if(315<x->aziL && x->aziL<45){
                     *outL++  = x->fftoutInvL[i] * mux;
                     *outR++  = x->fftoutInvR[i] * mux;
-                    //*outSL++ = 0;
-                    //*outSR++ = 0;
+                    *outSL++ = 0;
+                    *outSR++ = 0;
                 }
                 else if(x->aziL==45){
                     *outL++  = x->fftoutInvL[i] * mux;
-                    //*outR++  = 0;
-                    //*outSL++ = 0;
+                    *outR++  = 0;
+                    *outSL++ = 0;
                     *outSR++ = x->fftoutInvR[i] * mux;
                 }
                 else if(45<x->aziL && x->aziL<135){
-                    //*outL++  = 0;
+                    *outL++  = 0;
                     *outR++  = x->fftoutInvL[i] * mux;
-                    //*outSL++ = 0;
+                    *outSL++ = 0;
                     *outSR++ = x->fftoutInvR[i] * mux;
                 }
                 else if(x->aziL==135){
-                    //*outL++  = 0;
+                    *outL++  = 0;
                     *outR++  = x->fftoutInvL[i] * mux;
                     *outSL++ = x->fftoutInvR[i] * mux;
-                    //*outSR++ = 0;
+                    *outSR++ = 0;
                 }
                 else if(135<x->aziL && x->aziL<225){
-                    //*outL++  = 0;
-                    //*outR++  = 0;
+                    *outL++  = 0;
+                    *outR++  = 0;
                     *outSL++ = x->fftoutInvR[i] * mux;
                     *outSR++ = x->fftoutInvL[i] * mux;
                 }
                 else if(x->aziL==225){
                     *outL++  = x->fftoutInvR[i] * mux;
-                    //*outR++  = 0;
-                    //*outSL++ = 0;
+                    *outR++  = 0;
+                    *outSL++ = 0;
                     *outSR++ = x->fftoutInvL[i] * mux;
                 }
                 else if(225<x->aziL && x->aziL<315){
                     *outL++  = x->fftoutInvR[i] * mux;
-                    //*outR++  = 0;
+                    *outR++  = 0;
                     *outSL++ = x->fftoutInvL[i] * mux;
-                    //*outSR++ = 0;
+                    *outSR++ = 0;
                 }
                 else if(x->aziL==315){
-                    //*outL++  = 0;
+                    *outL++  = 0;
                     *outR++  = x->fftoutInvR[i] * mux;
                     *outSL++ = x->fftoutInvL[i] * mux;
-                    //*outSR++ = 0;
+                    *outSR++ = 0;
                 }
             }
         }
@@ -419,7 +419,7 @@ void quadraTrans_tilde_setup(void) {
                                         (t_method)quadraTrans_tilde_free,
                                         sizeof(t_quadraTrans_tilde),
                                         CLASS_DEFAULT,
-                                        A_DEFFLOAT, A_DEFFLOAT, 0);
+                                        A_DEFFLOAT, A_DEFFLOAT, A_DEFFLOAT, 0);
     
     class_addmethod(quadraTrans_tilde_class, (t_method)quadraTrans_tilde_dsp, gensym("dsp"), 0);
     CLASS_MAINSIGNALIN(quadraTrans_tilde_class, t_quadraTrans_tilde, f);
