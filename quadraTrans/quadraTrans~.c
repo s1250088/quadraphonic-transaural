@@ -24,7 +24,7 @@ static t_class *quadraTrans_tilde_class;
 typedef struct _quadraTrans_tilde{
     t_object x_obj;
     t_sample f_quadraTrans;
-    t_sample f;
+    t_float f;
     
     t_float aziL; //listener azimuth
     
@@ -43,13 +43,14 @@ typedef struct _quadraTrans_tilde{
     
     t_int nPts; //No. of taps used for the convolution
     t_int nPtsInDb; //No. of taps existing in the database (sampling rate dependent)
-   
-    char *zErrMsg;
-    char *zHrtfErrMsg;
     
     t_float currentImpulse[2][MAX_N_POINTS];
-    
     char path[2000];
+    
+    sqlite3 *db;
+    t_int connected;
+    t_int rc;
+    char *zErrMsg;
     
     //fftw
     int fftsize;
@@ -75,10 +76,6 @@ typedef struct _quadraTrans_tilde{
     fftwf_plan fftplanHrirR;
     float *fftinHrirR;
     fftwf_complex *fftoutHrirR;
-    
-    sqlite3 *db;
-    t_int connected;
-    t_int rc;
     
 }t_quadraTrans_tilde;
 

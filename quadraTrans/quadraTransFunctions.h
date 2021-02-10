@@ -44,13 +44,6 @@ float Float(char unsigned *const p) {
     return val;
 }
 
-/** This function computes the area A of a triangle using Heron's formula.
-@param x, y, z, are the lengths of the triangle sides
-*//*
-float triangleArea(float x, float y, float z) {
-    return pow(((x + y + z)*(-x + y + z)*(x - y + z)*(x + y - z)) / 16, 0.5);
-}
-*/
 /**
  the db callback used to load into arrays the impulse response
  */
@@ -87,7 +80,7 @@ static void findFilter(t_quadraTrans_tilde *x, float r, float e, float a) {
     }
 
     strcpy(query,"");
-    error=sprintf(query,"SELECT quadraTrans FROM measurements "
+    error=sprintf(query,"SELECT hrir FROM measurements "
                   "WHERE r=%f and e=%f and a=%f "
                   , r, e, a);
     if(error<0)
