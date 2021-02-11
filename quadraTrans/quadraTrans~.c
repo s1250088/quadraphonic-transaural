@@ -17,6 +17,7 @@
 
 #define DEFAULT_N_POINTS 256
 #define MAX_N_POINTS 3000
+#define MAX_BLOCKSIZE 8192
 #define DBFILENAME "/HRIR@44100.db"
 
 static t_class *quadraTrans_tilde_class;
@@ -45,6 +46,7 @@ typedef struct _quadraTrans_tilde{
     t_int nPtsInDb; //No. of taps existing in the database (sampling rate dependent)
     
     t_float currentImpulse[2][MAX_N_POINTS];
+    t_sample buffer[MAX_BLOCKSIZE][2];
     char path[2000];
     
     sqlite3 *db;
@@ -89,7 +91,7 @@ t_int *quadraTrans_tilde_perform(t_int *w){
     t_sample  *outSL  =  (t_sample *)(w[5]); //outlet 3
     t_sample  *outR   =  (t_sample *)(w[6]); //outlet 2
     t_sample  *outL   =  (t_sample *)(w[7]); //outlet 1
-    int   blocksize  =        (int)(w[8]);
+    int   blocksize   =         (int)(w[8]);
 
     int i;
     float mux = 1.0 / x->fftsize;
@@ -126,73 +128,88 @@ t_int *quadraTrans_tilde_perform(t_int *w){
         fftwf_execute(x->fftplanHrirL);
         fftwf_execute(x->fftplanHrirR);
         
+        // convolve
         for (i = 0; i < x->nbins; i++) {
-            x->fftinInvL[i][0] = x->fftoutL[i][0] * x->fftoutHrirL[i][0] - x->fftoutL[i][1] * x->fftoutHrirL[i][1];
-            x->fftinInvL[i][1] = x->fftoutL[i][0] * x->fftoutHrirL[i][1] + x->fftoutL[i][1] * x->fftoutHrirL[i][0];
-            x->fftinInvR[i][0] = x->fftoutR[i][0] * x->fftoutHrirR[i][0] - x->fftoutR[i][1] * x->fftoutHrirR[i][1];
-            x->fftinInvR[i][1] = x->fftoutR[i][0] * x->fftoutHrirR[i][1] + x->fftoutR[i][1] * x->fftoutHrirR[i][0];
+            x->fftinInvL[i][0] = (x->fftoutL[i][0] * x->fftoutHrirL[i][0] - x->fftoutL[i][1] * x->fftoutHrirL[i][1]) * mux;
+            x->fftinInvL[i][1] = (x->fftoutL[i][0] * x->fftoutHrirL[i][1] + x->fftoutL[i][1] * x->fftoutHrirL[i][0]) * mux;
+            x->fftinInvR[i][0] = (x->fftoutR[i][0] * x->fftoutHrirR[i][0] - x->fftoutR[i][1] * x->fftoutHrirR[i][1]) * mux;
+            x->fftinInvR[i][1] = (x->fftoutR[i][0] * x->fftoutHrirR[i][1] + x->fftoutR[i][1] * x->fftoutHrirR[i][0]) * mux;
         }
         
         fftwf_execute(x->fftplanInvL);
         fftwf_execute(x->fftplanInvR);
         
+        for(i = 0; i < x->fftsize; i++){
+
+            float tmp;
+            tmp = x->fftoutInvL[i];
+            x->fftoutInvL[i] += x->fftoutInvR[i];
+            x->fftoutInvR[i] = tmp - x->fftoutInvR[i];
+            
+            x->buffer[i][0] += x->fftoutInvL[i];
+            x->buffer[i][1] += x->fftoutInvR[i];
+        }
+        
         // Outputs
         for (i = 0; i < x->fftsize; i++) {
             if(i < blocksize){
-                float tmp;
-                tmp = x->fftoutInvL[i];
-                x->fftoutInvL[i] += x->fftoutInvR[i];
-                x->fftoutInvR[i] = tmp - x->fftoutInvR[i];
-                            
+                
+                /*float tmp;
+                tmp = x->buffer[i][0];
+                x->buffer[i][0] += x->buffer[i][1];
+                x->buffer[i][1] = tmp - x->buffer[i][1];*/
+                
                 if(315<x->aziL && x->aziL<45){
-                    *outL++  = x->fftoutInvL[i] * mux;
-                    *outR++  = x->fftoutInvR[i] * mux;
+                    *outL++  = x->buffer[i][0];
+                    *outR++  = x->buffer[i][1];
                     *outSL++ = 0;
                     *outSR++ = 0;
                 }
                 else if(x->aziL==45){
-                    *outL++  = x->fftoutInvL[i] * mux;
+                    *outL++  = x->buffer[i][0];
                     *outR++  = 0;
                     *outSL++ = 0;
-                    *outSR++ = x->fftoutInvR[i] * mux;
+                    *outSR++ = x->buffer[i][1];
                 }
                 else if(45<x->aziL && x->aziL<135){
                     *outL++  = 0;
-                    *outR++  = x->fftoutInvL[i] * mux;
+                    *outR++  = x->buffer[i][0];
                     *outSL++ = 0;
-                    *outSR++ = x->fftoutInvR[i] * mux;
+                    *outSR++ = x->buffer[i][1];
                 }
                 else if(x->aziL==135){
                     *outL++  = 0;
-                    *outR++  = x->fftoutInvL[i] * mux;
-                    *outSL++ = x->fftoutInvR[i] * mux;
+                    *outR++  = x->buffer[i][0];
+                    *outSL++ = x->buffer[i][1];
                     *outSR++ = 0;
                 }
                 else if(135<x->aziL && x->aziL<225){
                     *outL++  = 0;
                     *outR++  = 0;
-                    *outSL++ = x->fftoutInvR[i] * mux;
-                    *outSR++ = x->fftoutInvL[i] * mux;
+                    *outSL++ = x->buffer[i][1];
+                    *outSR++ = x->buffer[i][0];
                 }
                 else if(x->aziL==225){
-                    *outL++  = x->fftoutInvR[i] * mux;
+                    *outL++  = x->buffer[i][1];
                     *outR++  = 0;
                     *outSL++ = 0;
-                    *outSR++ = x->fftoutInvL[i] * mux;
+                    *outSR++ = x->buffer[i][0];
                 }
                 else if(225<x->aziL && x->aziL<315){
-                    *outL++  = x->fftoutInvR[i] * mux;
+                    *outL++  = x->buffer[i][1];
                     *outR++  = 0;
-                    *outSL++ = x->fftoutInvL[i] * mux;
+                    *outSL++ = x->buffer[i][0];
                     *outSR++ = 0;
                 }
                 else if(x->aziL==315){
                     *outL++  = 0;
                     *outR++  = x->fftoutInvR[i] * mux;
-                    *outSL++ = x->fftoutInvL[i] * mux;
+                    *outSL++ = x->buffer[i][1];
                     *outSR++ = 0;
                 }
             }
+            x->buffer[i][0] += x->buffer[i+blocksize][0];
+            x->buffer[i][1] += x->buffer[i+blocksize][1];
         }
     }
 #pragma endregion
@@ -312,12 +329,17 @@ void quadraTrans_tilde_dsp(t_quadraTrans_tilde *x, t_signal **sp){
             post("Number of tabs must be a power of 2\n", base, x->nPts);
         }
         
-        x->convsize = x->nPts + sp[0]->s_n -1;
-        x->fftsize = nextPo2(x->convsize);
-        
         post("quadraTrans~: Max. blocksize: 8192, Max. taps %d, currently using %d \n", base, x->nPts);
     }
 #pragma endregion db
+        
+        x->convsize = x->nPts + sp[0]->s_n -1;
+        x->fftsize = nextPo2(x->convsize);
+        
+        for(int i = 0; i < x->fftsize; i++){
+            x->buffer[i][0] = 0.0;
+            x->buffer[i][1] = 0.0;
+        }
         
 #pragma region fftw_set
         //set L
