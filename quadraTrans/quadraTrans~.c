@@ -46,13 +46,18 @@ typedef struct _quadraTrans_tilde{
     t_int nPtsInDb; //No. of taps existing in the database (sampling rate dependent)
     
     t_float currentImpulse[2][MAX_N_POINTS];
-    t_sample buffer[MAX_BLOCKSIZE][2];
+    t_sample buffer[MAX_BLOCKSIZE*MAX_N_POINTS][2];
     char path[2000];
     
     sqlite3 *db;
     t_int connected;
     t_int rc;
     char *zErrMsg;
+    
+    fftwf_complex *speakerL[2][MAX_N_POINTS];
+    fftwf_complex *speakerR[2][MAX_N_POINTS];
+    fftwf_complex *speakerSL[2][MAX_N_POINTS];
+    fftwf_complex *speakerSR[2][MAX_N_POINTS];
     
     //fftw
     int fftsize;
@@ -100,8 +105,6 @@ t_int *quadraTrans_tilde_perform(t_int *w){
     if (x->connected == 1) {
         
 #pragma region main
-        
-        findFilter(x, 160, 0, x->aziL);
         
         for (i = 0; i < x->fftsize; i++) {
             if(i < blocksize){
@@ -368,6 +371,61 @@ void quadraTrans_tilde_dsp(t_quadraTrans_tilde *x, t_signal **sp){
         x->fftplanInvR = fftwf_plan_dft_c2r_1d((x->fftsize), x->fftinInvR, x->fftoutInvR, FFTW_MEASURE);
         
 #pragma endregion fftw_set
+        
+#pragma region speaker_set
+        // sperker L
+        findFilter(x, 160, 0, 45);
+        for(int i = 0; i<x->fftsize; i++){
+            x->fftinL[i] = x->currentImpulse[0][i];
+            x->fftinR[i] = x->currentImpulse[1][i];
+        }
+        fftwf_execute(x->fftplanL);
+        fftwf_execute(x->fftplanR);
+        for(int i = 0; i<x->fftsize; i++){
+            x->speakerL[0][i] = &x->fftoutL[i];
+            x->speakerL[1][i] = &x->fftoutR[i];
+        }
+        
+        // speaker SL
+        findFilter(x, 160, 0, 135);
+        for(int i = 0; i<x->fftsize; i++){
+            x->fftinL[i] = x->currentImpulse[0][i];
+            x->fftinR[i] = x->currentImpulse[1][i];
+        }
+        fftwf_execute(x->fftplanL);
+        fftwf_execute(x->fftplanR);
+        for(int i = 0; i<x->fftsize; i++){
+            x->speakerSL[0][i] = &x->fftoutL[i];
+            x->speakerSL[1][i] = &x->fftoutR[i];
+        }
+        
+        // speaker SR
+        findFilter(x, 160, 0, -135);
+        for(int i = 0; i<x->fftsize; i++){
+            x->fftinL[i] = x->currentImpulse[0][i];
+            x->fftinR[i] = x->currentImpulse[1][i];
+        }
+        fftwf_execute(x->fftplanL);
+        fftwf_execute(x->fftplanR);
+        for(int i = 0; i<x->fftsize; i++){
+            x->speakerSR[0][i] = &x->fftoutL[i];
+            x->speakerSR[1][i] = &x->fftoutR[i];
+        }
+        
+        // speaker R
+        findFilter(x, 160, 0, -45);
+        for(int i = 0; i<x->fftsize; i++){
+            x->fftinL[i] = x->currentImpulse[0][i];
+            x->fftinR[i] = x->currentImpulse[1][i];
+        }
+        fftwf_execute(x->fftplanL);
+        fftwf_execute(x->fftplanR);
+        for(int i = 0; i<x->fftsize; i++){
+            x->speakerR[0][i] = &x->fftoutL[i];
+            x->speakerR[1][i] = &x->fftoutR[i];
+        }
+#pragma endregion speaker_set
+        
 }
         
 void quadraTrans_tilde_free(t_quadraTrans_tilde *x){
