@@ -146,8 +146,8 @@ t_int *quadraTrans_tilde_perform(t_int *w){
             x->fftoutInvL[i] += x->fftoutInvR[i];
             x->fftoutInvR[i] = tmp - x->fftoutInvR[i];
             
-            x->buffer[i][0] += x->fftoutInvL[i];
-            x->buffer[i][1] += x->fftoutInvR[i];
+            x->buffer[i][0] = x->buffer[i][0] + x->fftoutInvL[i];
+            x->buffer[i][1] = x->buffer[i][1] + x->fftoutInvR[i];
         }
         
         // Outputs
@@ -441,7 +441,7 @@ void quadraTrans_tilde_setup(void) {
                                         (t_method)quadraTrans_tilde_free,
                                         sizeof(t_quadraTrans_tilde),
                                         CLASS_DEFAULT,
-                                        A_DEFFLOAT, A_DEFFLOAT, A_DEFFLOAT, 0);
+                                        A_DEFSYMBOL, A_DEFSYMBOL, A_DEFFLOAT, 0);
     
     class_addmethod(quadraTrans_tilde_class, (t_method)quadraTrans_tilde_dsp, gensym("dsp"), 0);
     CLASS_MAINSIGNALIN(quadraTrans_tilde_class, t_quadraTrans_tilde, f);
