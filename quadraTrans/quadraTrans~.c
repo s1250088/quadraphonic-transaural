@@ -46,6 +46,7 @@ typedef struct _quadraTrans_tilde{
     t_int nPtsInDb; //No. of taps existing in the database (sampling rate dependent)
     
     t_float currentImpulse[2][MAX_N_POINTS];
+    t_float speackersFilters[4][2][MAX_N_POINTS]; //0->L; 1->R; 2->SL; 3->SR    
     t_sample buffer[MAX_BLOCKSIZE*MAX_N_POINTS][2];
     char path[2000];
     
@@ -53,11 +54,6 @@ typedef struct _quadraTrans_tilde{
     t_int connected;
     t_int rc;
     char *zErrMsg;
-    
-    fftwf_complex *speakerL[2][MAX_N_POINTS];
-    fftwf_complex *speakerR[2][MAX_N_POINTS];
-    fftwf_complex *speakerSL[2][MAX_N_POINTS];
-    fftwf_complex *speakerSR[2][MAX_N_POINTS];
     
     //fftw
     int fftsize;
@@ -102,7 +98,7 @@ t_int *quadraTrans_tilde_perform(t_int *w){
     float mux = 1.0 / x->fftsize;
     x->nbins = x->fftsize/2 + 1;
     
-    if (x->connected == 1) {
+    //if (x->connected == 1) {
         
 #pragma region main
         
@@ -121,8 +117,12 @@ t_int *quadraTrans_tilde_perform(t_int *w){
         
         for (i = 0; i < x->fftsize; i++) {
             if(i < blocksize){
-                x->fftinHrirL[i] = 1 / (x->currentImpulse[0][i] + x->currentImpulse[1][i]);
-                x->fftinHrirR[i] = 1 / (x->currentImpulse[0][i] - x->currentImpulse[1][i]);
+                //double tmp=(x->currentImpulse[0][i] + x->currentImpulse[1][i]);
+                double tmp=(x->speackersFilters[0][0][i]+x->speackersFilters[0][1][i])/2;
+                x->fftinHrirL[i] = 1 / tmp==0?0.00000000000000000001:tmp;
+                // tmp=(x->currentImpulse[0][i] - x->currentImpulse[1][i]);
+                tmp=(x->speackersFilters[0][0][i]+x->speackersFilters[0][1][i])/2;
+                x->fftinHrirR[i] = 1 / tmp==0?0.00000000000000000001:tmp;
             } else { // blocksize <= i <fftsize
                 x->fftinHrirL[i] = 0;
                 x->fftinHrirR[i] = 0;
@@ -145,15 +145,18 @@ t_int *quadraTrans_tilde_perform(t_int *w){
         for(i = 0; i < x->fftsize; i++){
 
             float tmp;
-            tmp = x->fftoutInvL[i];
-            x->fftoutInvL[i] += x->fftoutInvR[i];
-            x->fftoutInvR[i] = tmp - x->fftoutInvR[i];
+            tmp = x->fftoutInvL[i]*mux;
+            x->fftoutInvL[i] += x->fftoutInvR[i]*mux;
+            x->fftoutInvR[i] = tmp - x->fftoutInvR[i]*mux;
             
             x->buffer[i][0] = x->buffer[i][0] + x->fftoutInvL[i];
             x->buffer[i][1] = x->buffer[i][1] + x->fftoutInvR[i];
         }
         
         // Outputs
+        char debug[4];
+        sprintf(debug, "%d", (int)x->aziL);        
+        post(debug);
         for (i = 0; i < x->fftsize; i++) {
             if(i < blocksize){
                 
@@ -169,22 +172,22 @@ t_int *quadraTrans_tilde_perform(t_int *w){
                     *outSR++ = 0;
                 }
                 else if(x->aziL==45){
-                    *outL++  = x->buffer[i][0];
+                    *outL++  = 0;
                     *outR++  = 0;
-                    *outSL++ = 0;
-                    *outSR++ = x->buffer[i][1];
+                    *outSL++ = x->buffer[i][0]+x->buffer[i][1];
+                    *outSR++ = 0;//x->buffer[i][1];                    
                 }
                 else if(45<x->aziL && x->aziL<135){
                     *outL++  = 0;
                     *outR++  = x->buffer[i][0];
                     *outSL++ = 0;
-                    *outSR++ = x->buffer[i][1];
+                    *outSR++ = x->buffer[i][1];                    
                 }
                 else if(x->aziL==135){
                     *outL++  = 0;
-                    *outR++  = x->buffer[i][0];
-                    *outSL++ = x->buffer[i][1];
-                    *outSR++ = 0;
+                    *outR++  = 0;//x->buffer[i][0];
+                    *outSL++ = 0;//x->buffer[i][1];
+                    *outSR++ = x->buffer[i][0]+x->buffer[i][1];//0;
                 }
                 else if(135<x->aziL && x->aziL<225){
                     *outL++  = 0;
@@ -193,10 +196,10 @@ t_int *quadraTrans_tilde_perform(t_int *w){
                     *outSR++ = x->buffer[i][0];
                 }
                 else if(x->aziL==225){
-                    *outL++  = x->buffer[i][1];
+                    *outL++  = 0;//x->buffer[i][1];
                     *outR++  = 0;
-                    *outSL++ = 0;
-                    *outSR++ = x->buffer[i][0];
+                    *outSL++ = x->buffer[i][0]+x->buffer[i][1];
+                    *outSR++ = 0;//x->buffer[i][0];
                 }
                 else if(225<x->aziL && x->aziL<315){
                     *outL++  = x->buffer[i][1];
@@ -205,16 +208,16 @@ t_int *quadraTrans_tilde_perform(t_int *w){
                     *outSR++ = 0;
                 }
                 else if(x->aziL==315){
-                    *outL++  = 0;
-                    *outR++  = x->fftoutInvR[i] * mux;
-                    *outSL++ = x->buffer[i][1];
+                    *outL++  = x->buffer[i][0]+x->buffer[i][1];
+                    *outR++  = 0;
+                    *outSL++ = 0;
                     *outSR++ = 0;
                 }
             }
             x->buffer[i][0] += x->buffer[i+blocksize][0];
             x->buffer[i][1] += x->buffer[i+blocksize][1];
         }
-    }
+    //}
 #pragma endregion
     return (w+9);
 }
@@ -373,57 +376,18 @@ void quadraTrans_tilde_dsp(t_quadraTrans_tilde *x, t_signal **sp){
 #pragma endregion fftw_set
         
 #pragma region speaker_set
-        // sperker L
-        findFilter(x, 160, 0, 45);
-        for(int i = 0; i<x->fftsize; i++){
-            x->fftinL[i] = x->currentImpulse[0][i];
-            x->fftinR[i] = x->currentImpulse[1][i];
-        }
-        fftwf_execute(x->fftplanL);
-        fftwf_execute(x->fftplanR);
-        for(int i = 0; i<x->fftsize; i++){
-            x->speakerL[0][i] = &x->fftoutL[i];
-            x->speakerL[1][i] = &x->fftoutR[i];
-        }
-        
-        // speaker SL
-        findFilter(x, 160, 0, 135);
-        for(int i = 0; i<x->fftsize; i++){
-            x->fftinL[i] = x->currentImpulse[0][i];
-            x->fftinR[i] = x->currentImpulse[1][i];
-        }
-        fftwf_execute(x->fftplanL);
-        fftwf_execute(x->fftplanR);
-        for(int i = 0; i<x->fftsize; i++){
-            x->speakerSL[0][i] = &x->fftoutL[i];
-            x->speakerSL[1][i] = &x->fftoutR[i];
-        }
-        
-        // speaker SR
-        findFilter(x, 160, 0, -135);
-        for(int i = 0; i<x->fftsize; i++){
-            x->fftinL[i] = x->currentImpulse[0][i];
-            x->fftinR[i] = x->currentImpulse[1][i];
-        }
-        fftwf_execute(x->fftplanL);
-        fftwf_execute(x->fftplanR);
-        for(int i = 0; i<x->fftsize; i++){
-            x->speakerSR[0][i] = &x->fftoutL[i];
-            x->speakerSR[1][i] = &x->fftoutR[i];
-        }
-        
-        // speaker R
-        findFilter(x, 160, 0, -45);
-        for(int i = 0; i<x->fftsize; i++){
-            x->fftinL[i] = x->currentImpulse[0][i];
-            x->fftinR[i] = x->currentImpulse[1][i];
-        }
-        fftwf_execute(x->fftplanL);
-        fftwf_execute(x->fftplanR);
-        for(int i = 0; i<x->fftsize; i++){
-            x->speakerR[0][i] = &x->fftoutL[i];
-            x->speakerR[1][i] = &x->fftoutR[i];
-        }
+        findFilter(x, 160, 0, 45);   // spearker L
+        memcpy(&x->speackersFilters[0][0],x->currentImpulse[0],x->nPts * sizeof(float));
+        memcpy(&x->speackersFilters[0][1],x->currentImpulse[0],x->nPts * sizeof(float));
+        // findFilter(x, 160, 0, 135);  // speaker SL
+        // memcpy(&x->speackersFilters[2][0],x->currentImpulse[0],x->nPts * sizeof(float));
+        // memcpy(&x->speackersFilters[2][1],x->currentImpulse[0],x->nPts * sizeof(float));
+        // findFilter(x, 160, 0, 225); // speaker SR
+        // memcpy(&x->speackersFilters[3][0],x->currentImpulse[0],x->nPts * sizeof(float));
+        // memcpy(&x->speackersFilters[3][1],x->currentImpulse[0],x->nPts * sizeof(float));
+        // findFilter(x, 160, 0, 315);  // speaker R
+        // memcpy(&x->speackersFilters[1][0],x->currentImpulse[0],x->nPts * sizeof(float));
+        // memcpy(&x->speackersFilters[1][1],x->currentImpulse[0],x->nPts * sizeof(float));
 #pragma endregion speaker_set
         
 }
