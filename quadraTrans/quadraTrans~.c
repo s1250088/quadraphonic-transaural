@@ -20,6 +20,9 @@
 #define MAX_BLOCKSIZE 8192
 #define DBFILENAME "/HRIR@44100.db"
 
+#define degToRad(angleInDegrees) ((angleInDegrees) * M_PI / 180.0)
+#define radToDeg(angleInRadians) ((angleInRadians) * 180.0 / M_PI)
+
 static t_class *quadraTrans_tilde_class;
 
 typedef struct _quadraTrans_tilde{
@@ -88,14 +91,14 @@ t_int *quadraTrans_tilde_perform(t_int *w){
     t_quadraTrans_tilde *x = (t_quadraTrans_tilde *)(w[1]);
     t_sample  *inXL   =  (t_sample *)(w[2]); //inlet 1
     t_sample  *inXR   =  (t_sample *)(w[3]); //inlet 2
-    // t_sample  *outSR  =  (t_sample *)(w[4]); //outlet 4
-    // t_sample  *outSL  =  (t_sample *)(w[5]); //outlet 3
-    // t_sample  *outR   =  (t_sample *)(w[6]); //outlet 2
-    // t_sample  *outL   =  (t_sample *)(w[7]); //outlet 1
-    t_sample  *outL   =  (t_sample *)(w[4]); //outlet 1
-    t_sample  *outR   =  (t_sample *)(w[5]); //outlet 2
-    t_sample  *outSL  =  (t_sample *)(w[6]); //outlet 3
-    t_sample  *outSR  =  (t_sample *)(w[7]); //outlet 4        
+    t_sample  *outSR  =  (t_sample *)(w[4]); //outlet 4
+    t_sample  *outSL  =  (t_sample *)(w[5]); //outlet 3
+    t_sample  *outR   =  (t_sample *)(w[6]); //outlet 2
+    t_sample  *outL   =  (t_sample *)(w[7]); //outlet 1
+    // t_sample  *outL   =  (t_sample *)(w[4]); //outlet 1
+    // t_sample  *outR   =  (t_sample *)(w[5]); //outlet 2
+    // t_sample  *outSL  =  (t_sample *)(w[6]); //outlet 3
+    // t_sample  *outSR  =  (t_sample *)(w[7]); //outlet 4        
     
     int   blocksize   =         (int)(w[8]);
 
@@ -104,7 +107,7 @@ t_int *quadraTrans_tilde_perform(t_int *w){
     x->nbins = x->fftsize/2 + 1;
 
     float gain1=1;
-    float gain2=1;
+    float gain2=0.5;
     
     //if (x->connected == 1) {
         
@@ -173,67 +176,82 @@ t_int *quadraTrans_tilde_perform(t_int *w){
         // char debug[4];
         // sprintf(debug, "%d", (int)x->aziL);        
         // post(debug);
+        int angle=(int)roundf(fabs(((float)x->aziL)))%360;
+        float rad_ang=degToRad(angle);
         for (i = 0; i < x->fftsize; i++) {
-            if(i < blocksize){
-                
+            //if(i < blocksize){                
                 /*float tmp;
                 tmp = x->buffer[i][0];
                 x->buffer[i][0] += x->buffer[i][1];
                 x->buffer[i][1] = tmp - x->buffer[i][1];*/
                 
-                if(315<(int)x->aziL || (int)x->aziL<45){
-                    *outL++  = x->buffer[i][0]*gain2;
-                    *outR++  = x->buffer[i][1]*gain2;
-                    *outSL++ = 0;
-                    *outSR++ = 0;
-                }
-                else if((int)x->aziL==45){
-                    *outL++  = 0;
-                    *outR++  = (x->buffer[i][0]+x->buffer[i][1])*gain2;
-                    *outSL++ = 0;
-                    *outSR++ = 0;//x->buffer[i][1];                   *gain2 
-                }
-                else if(45<(int)x->aziL && (int)x->aziL<135){
-                    *outL++  = 0;
-                    *outR++  = x->buffer[i][0]*gain2;
-                    *outSL++ = 0;
-                    *outSR++ = x->buffer[i][1]*gain2; 
-                }
-                else if((int)x->aziL==135){
-                    *outL++  = 0;
-                    *outR++  = 0;//x->buffer[i][0]*gain2;
-                    *outSL++ = 0;//x->buffer[i][1]*gain2;
-                    *outSR++ = (x->buffer[i][0]+x->buffer[i][1])*gain2;//0*gain2;
-                }
-                else if(135<(int)x->aziL && (int)x->aziL<225){
-                    *outL++  = 0;
-                    *outR++  = 0;
-                    *outSL++ = x->buffer[i][1]*gain2;
-                    *outSR++ = x->buffer[i][0]*gain2;
-                }
-                else if((int)x->aziL==225){
-                    *outL++  = 0;//x->buffer[i][1]*gain2;
-                    *outR++  = 0;
-                    *outSL++ = (x->buffer[i][0]+x->buffer[i][1])*gain2;
-                    *outSR++ = 0;//x->buffer[i][0]*gain2;
-                }
-                else if(225<(int)x->aziL && (int)x->aziL<315){
-                    *outL++  = x->buffer[i][1]*gain2;
-                    *outR++  = 0;
-                    *outSL++ = x->buffer[i][0]*gain2;
-                    *outSR++ = 0;
-                }
-                else if((int)x->aziL==315){
-                    *outL++  = (x->buffer[i][0]+x->buffer[i][1])*gain2;
-                    *outR++  = 0;
-                    *outSL++ = 0;
-                    *outSR++ = 0;
-                }else{
-                    *outL++  = 0;
-                    *outR++  = 0;
-                    *outSL++ = 0;
-                    *outSR++ = 0;
-                }
+            //     if(315<(int)x->aziL || (int)x->aziL<45){
+            //         *outL++  = (x->buffer[i][0]*gain2);//*cosf(degToRad(x->aziL*2));
+            //         *outR++  = (x->buffer[i][1]*gain2);//*cosf(degToRad(x->aziL*2))+(cosf(degToRad(x->aziL*2-90))>0?);
+            //         *outSL++ = 0;
+            //         *outSR++ = 0;
+            //     }
+            //     else if((int)x->aziL==45){
+            //         *outL++  = 0;
+            //         *outR++  = (x->buffer[i][0]+x->buffer[i][1])*gain2;
+            //         *outSL++ = 0;
+            //         *outSR++ = 0;//x->buffer[i][1];                   *gain2 
+            //     }
+            //     else if(45<(int)x->aziL && (int)x->aziL<135){
+            //         *outL++  = 0;
+            //         *outR++  = x->buffer[i][0]*gain2;
+            //         *outSL++ = 0;
+            //         *outSR++ = x->buffer[i][1]*gain2; 
+            //     }
+            //     else if((int)x->aziL==135){
+            //         *outL++  = 0;
+            //         *outR++  = 0;//x->buffer[i][0]*gain2;
+            //         *outSL++ = 0;//x->buffer[i][1]*gain2;
+            //         *outSR++ = (x->buffer[i][0]+x->buffer[i][1])*gain2;//0*gain2;
+            //     }
+            //     else if(135<(int)x->aziL && (int)x->aziL<225){
+            //         *outL++  = 0;
+            //         *outR++  = 0;
+            //         *outSL++ = x->buffer[i][1]*gain2;
+            //         *outSR++ = x->buffer[i][0]*gain2;
+            //     }
+            //     else if((int)x->aziL==225){
+            //         *outL++  = 0;//x->buffer[i][1]*gain2;
+            //         *outR++  = 0;
+            //         *outSL++ = (x->buffer[i][0]+x->buffer[i][1])*gain2;
+            //         *outSR++ = 0;//x->buffer[i][0]*gain2;
+            //     }
+            //     else if(225<(int)x->aziL && (int)x->aziL<315){
+            //         *outL++  = x->buffer[i][1]*gain2;
+            //         *outR++  = 0;
+            //         *outSL++ = x->buffer[i][0]*gain2;
+            //         *outSR++ = 0;
+            //     }
+            //     else if((int)x->aziL==315){
+            //         *outL++  = (x->buffer[i][0]+x->buffer[i][1])*gain2;
+            //         *outR++  = 0;
+            //         *outSL++ = 0;
+            //         *outSR++ = 0;
+            //     }else{
+            //         *outL++  = 0;
+            //         *outR++  = 0;
+            //         *outSL++ = 0;
+            //         *outSR++ = 0;
+            //     }
+            // } 
+            if(i < blocksize){   
+                *outL++=((angle>315||angle<45?x->buffer[i][0]*cosf(rad_ang*2):0)+
+                        (angle>270&&angle<360?(x->buffer[i][0]+x->buffer[i][1])*cosf(rad_ang*2-(2*315)):0)+
+                        (angle>225&&angle<315?x->buffer[i][1]*cosf(rad_ang*2-(2*270)):0))*gain2;
+                *outR++=((angle>315||angle<45?x->buffer[i][1]*cosf(rad_ang*2):0)+
+                        (angle>0&&angle<90?(x->buffer[i][0]+x->buffer[i][1])*cosf(rad_ang*2-(2*45)):0)+
+                        (angle>45&&angle<135?x->buffer[i][0]*cosf(rad_ang*2-(2*90)):0))*gain2;
+                *outSL++=((angle>135&&angle<225?x->buffer[i][1]*cosf(rad_ang*2-(2*180)):0)+
+                        (angle>180&&angle<270?(x->buffer[i][0]+x->buffer[i][1])*cosf(rad_ang*2-(2*225)):0)+
+                        (angle>225&&angle<315?x->buffer[i][0]*cosf(rad_ang*2-(2*270)):0))*gain2;
+                *outSR++=((angle>135&&angle<225?x->buffer[i][0]*cosf(rad_ang*2-(2*180)):0)+
+                        (angle>90&&angle<180?(x->buffer[i][0]+x->buffer[i][1])*cosf(rad_ang*2-(2*135)):0)+
+                        (angle>45&&angle<135?x->buffer[i][1]*cosf(rad_ang*2-(2*90)):0))*gain2;
             }
             // x->buffer[i][0] += x->buffer[i+blocksize][0];
             // x->buffer[i][1] += x->buffer[i+blocksize][1];
