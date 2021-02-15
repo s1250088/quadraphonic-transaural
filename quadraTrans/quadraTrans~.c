@@ -29,7 +29,7 @@ typedef struct _quadraTrans_tilde{
     
     t_float aziL; //listener azimuth
     
-    t_float sr; //sampling rate
+    int sr; //sampling rate
     
     t_inlet *x_in2; //inlet
     t_inlet *x_in3; //inlet
@@ -39,11 +39,11 @@ typedef struct _quadraTrans_tilde{
     t_outlet *x_outSL; //outlet
     t_outlet *x_outSR; //outlet
     
-    t_float convsize;
-    t_float nbins;
+    int convsize;
+    int nbins;
     
-    t_int nPts; //No. of taps used for the convolution
-    t_int nPtsInDb; //No. of taps existing in the database (sampling rate dependent)
+    int nPts; //No. of taps used for the convolution
+    int nPtsInDb; //No. of taps existing in the database (sampling rate dependent)
     
     t_float currentImpulse[2][MAX_N_POINTS];
     t_float speackersFilters[4][2][MAX_N_POINTS]; //0->L; 1->R; 2->SL; 3->SR    
@@ -88,24 +88,32 @@ t_int *quadraTrans_tilde_perform(t_int *w){
     t_quadraTrans_tilde *x = (t_quadraTrans_tilde *)(w[1]);
     t_sample  *inXL   =  (t_sample *)(w[2]); //inlet 1
     t_sample  *inXR   =  (t_sample *)(w[3]); //inlet 2
-    t_sample  *outSR  =  (t_sample *)(w[4]); //outlet 4
-    t_sample  *outSL  =  (t_sample *)(w[5]); //outlet 3
-    t_sample  *outR   =  (t_sample *)(w[6]); //outlet 2
-    t_sample  *outL   =  (t_sample *)(w[7]); //outlet 1
+    // t_sample  *outSR  =  (t_sample *)(w[4]); //outlet 4
+    // t_sample  *outSL  =  (t_sample *)(w[5]); //outlet 3
+    // t_sample  *outR   =  (t_sample *)(w[6]); //outlet 2
+    // t_sample  *outL   =  (t_sample *)(w[7]); //outlet 1
+    t_sample  *outL   =  (t_sample *)(w[4]); //outlet 1
+    t_sample  *outR   =  (t_sample *)(w[5]); //outlet 2
+    t_sample  *outSL  =  (t_sample *)(w[6]); //outlet 3
+    t_sample  *outSR  =  (t_sample *)(w[7]); //outlet 4        
+    
     int   blocksize   =         (int)(w[8]);
 
     int i;
-    float mux = 1.0 / x->fftsize;
+    float mux = (float)1.0 / (float)x->fftsize;
     x->nbins = x->fftsize/2 + 1;
+
+    float gain1=1;
+    float gain2=1;
     
     //if (x->connected == 1) {
         
-#pragma region main
+//#pragma region main
         
         for (i = 0; i < x->fftsize; i++) {
             if(i < blocksize){
-                x->fftinL[i] = (inXL[i] + inXR[i])/2;
-                x->fftinR[i] = (inXL[i] - inXR[i])/2;
+                x->fftinL[i] = (inXL[i] + inXR[i])*gain1;
+                x->fftinR[i] = (inXL[i] - inXR[i])*gain1;
             } else { // blocksize <= i <fftsize
                 x->fftinL[i] = 0;
                 x->fftinR[i] = 0;
@@ -116,13 +124,14 @@ t_int *quadraTrans_tilde_perform(t_int *w){
         fftwf_execute(x->fftplanR);
         
         for (i = 0; i < x->fftsize; i++) {
-            if(i < blocksize){
-                //double tmp=(x->currentImpulse[0][i] + x->currentImpulse[1][i]);
-                double tmp=(x->speackersFilters[0][0][i]+x->speackersFilters[0][1][i])/2;
-                x->fftinHrirL[i] = 1 / tmp==0?0.00000000000000000001:tmp;
-                // tmp=(x->currentImpulse[0][i] - x->currentImpulse[1][i]);
-                tmp=(x->speackersFilters[0][0][i]+x->speackersFilters[0][1][i])/2;
-                x->fftinHrirR[i] = 1 / tmp==0?0.00000000000000000001:tmp;
+            //if(i < blocksize){
+            if(i < x->nPts){
+                double tmp=(x->currentImpulse[0][i] + x->currentImpulse[1][i]);
+                // double tmp=(x->speackersFilters[0][0][i]+x->speackersFilters[0][1][i]);
+                x->fftinHrirL[i] = 1 / (tmp==0?0.00000000000000000001:tmp);
+                tmp=(x->currentImpulse[0][i] - x->currentImpulse[1][i]);
+                // tmp=(x->speackersFilters[0][0][i]-x->speackersFilters[0][1][i]);
+                x->fftinHrirR[i] = 1 / (tmp==0?0.00000000000000000001:tmp);
             } else { // blocksize <= i <fftsize
                 x->fftinHrirL[i] = 0;
                 x->fftinHrirR[i] = 0;
@@ -133,10 +142,10 @@ t_int *quadraTrans_tilde_perform(t_int *w){
         
         // convolve
         for (i = 0; i < x->nbins; i++) {
-            x->fftinInvL[i][0] = (x->fftoutL[i][0] * x->fftoutHrirL[i][0] - x->fftoutL[i][1] * x->fftoutHrirL[i][1]) * mux;
-            x->fftinInvL[i][1] = (x->fftoutL[i][0] * x->fftoutHrirL[i][1] + x->fftoutL[i][1] * x->fftoutHrirL[i][0]) * mux;
-            x->fftinInvR[i][0] = (x->fftoutR[i][0] * x->fftoutHrirR[i][0] - x->fftoutR[i][1] * x->fftoutHrirR[i][1]) * mux;
-            x->fftinInvR[i][1] = (x->fftoutR[i][0] * x->fftoutHrirR[i][1] + x->fftoutR[i][1] * x->fftoutHrirR[i][0]) * mux;
+            x->fftinInvL[i][0] = (x->fftoutL[i][0] * x->fftoutHrirL[i][0] - x->fftoutL[i][1] * x->fftoutHrirL[i][1]);// * mux;
+            x->fftinInvL[i][1] = (x->fftoutL[i][0] * x->fftoutHrirL[i][1] + x->fftoutL[i][1] * x->fftoutHrirL[i][0]);// * mux;
+            x->fftinInvR[i][0] = (x->fftoutR[i][0] * x->fftoutHrirR[i][0] - x->fftoutR[i][1] * x->fftoutHrirR[i][1]);// * mux;
+            x->fftinInvR[i][1] = (x->fftoutR[i][0] * x->fftoutHrirR[i][1] + x->fftoutR[i][1] * x->fftoutHrirR[i][0]);// * mux;
         }
         
         fftwf_execute(x->fftplanInvL);
@@ -150,13 +159,20 @@ t_int *quadraTrans_tilde_perform(t_int *w){
             x->fftoutInvR[i] = tmp - x->fftoutInvR[i]*mux;
             
             x->buffer[i][0] = x->buffer[i][0] + x->fftoutInvL[i];
-            x->buffer[i][1] = x->buffer[i][1] + x->fftoutInvR[i];
+            x->buffer[i][1] = x->buffer[i][1] + x->fftoutInvR[i];                                   
+
         }
+        // for ( i = 0; i < blocksize; i++)
+        // {
+        //     x->buffer[i][0] = inXL[i];
+        //     x->buffer[i][1] = inXR[i];            
+        // }
+        
         
         // Outputs
-        char debug[4];
-        sprintf(debug, "%d", (int)x->aziL);        
-        post(debug);
+        // char debug[4];
+        // sprintf(debug, "%d", (int)x->aziL);        
+        // post(debug);
         for (i = 0; i < x->fftsize; i++) {
             if(i < blocksize){
                 
@@ -165,60 +181,67 @@ t_int *quadraTrans_tilde_perform(t_int *w){
                 x->buffer[i][0] += x->buffer[i][1];
                 x->buffer[i][1] = tmp - x->buffer[i][1];*/
                 
-                if(315<x->aziL && x->aziL<45){
-                    *outL++  = x->buffer[i][0];
-                    *outR++  = x->buffer[i][1];
+                if(315<(int)x->aziL || (int)x->aziL<45){
+                    *outL++  = x->buffer[i][0]*gain2;
+                    *outR++  = x->buffer[i][1]*gain2;
                     *outSL++ = 0;
                     *outSR++ = 0;
                 }
-                else if(x->aziL==45){
+                else if((int)x->aziL==45){
                     *outL++  = 0;
-                    *outR++  = 0;
-                    *outSL++ = x->buffer[i][0]+x->buffer[i][1];
-                    *outSR++ = 0;//x->buffer[i][1];                    
-                }
-                else if(45<x->aziL && x->aziL<135){
-                    *outL++  = 0;
-                    *outR++  = x->buffer[i][0];
+                    *outR++  = (x->buffer[i][0]+x->buffer[i][1])*gain2;
                     *outSL++ = 0;
-                    *outSR++ = x->buffer[i][1];                    
+                    *outSR++ = 0;//x->buffer[i][1];                   *gain2 
                 }
-                else if(x->aziL==135){
+                else if(45<(int)x->aziL && (int)x->aziL<135){
                     *outL++  = 0;
-                    *outR++  = 0;//x->buffer[i][0];
-                    *outSL++ = 0;//x->buffer[i][1];
-                    *outSR++ = x->buffer[i][0]+x->buffer[i][1];//0;
+                    *outR++  = x->buffer[i][0]*gain2;
+                    *outSL++ = 0;
+                    *outSR++ = x->buffer[i][1]*gain2; 
                 }
-                else if(135<x->aziL && x->aziL<225){
+                else if((int)x->aziL==135){
+                    *outL++  = 0;
+                    *outR++  = 0;//x->buffer[i][0]*gain2;
+                    *outSL++ = 0;//x->buffer[i][1]*gain2;
+                    *outSR++ = (x->buffer[i][0]+x->buffer[i][1])*gain2;//0*gain2;
+                }
+                else if(135<(int)x->aziL && (int)x->aziL<225){
                     *outL++  = 0;
                     *outR++  = 0;
-                    *outSL++ = x->buffer[i][1];
-                    *outSR++ = x->buffer[i][0];
+                    *outSL++ = x->buffer[i][1]*gain2;
+                    *outSR++ = x->buffer[i][0]*gain2;
                 }
-                else if(x->aziL==225){
-                    *outL++  = 0;//x->buffer[i][1];
+                else if((int)x->aziL==225){
+                    *outL++  = 0;//x->buffer[i][1]*gain2;
                     *outR++  = 0;
-                    *outSL++ = x->buffer[i][0]+x->buffer[i][1];
-                    *outSR++ = 0;//x->buffer[i][0];
+                    *outSL++ = (x->buffer[i][0]+x->buffer[i][1])*gain2;
+                    *outSR++ = 0;//x->buffer[i][0]*gain2;
                 }
-                else if(225<x->aziL && x->aziL<315){
-                    *outL++  = x->buffer[i][1];
+                else if(225<(int)x->aziL && (int)x->aziL<315){
+                    *outL++  = x->buffer[i][1]*gain2;
                     *outR++  = 0;
-                    *outSL++ = x->buffer[i][0];
+                    *outSL++ = x->buffer[i][0]*gain2;
                     *outSR++ = 0;
                 }
-                else if(x->aziL==315){
-                    *outL++  = x->buffer[i][0]+x->buffer[i][1];
+                else if((int)x->aziL==315){
+                    *outL++  = (x->buffer[i][0]+x->buffer[i][1])*gain2;
+                    *outR++  = 0;
+                    *outSL++ = 0;
+                    *outSR++ = 0;
+                }else{
+                    *outL++  = 0;
                     *outR++  = 0;
                     *outSL++ = 0;
                     *outSR++ = 0;
                 }
             }
-            x->buffer[i][0] += x->buffer[i+blocksize][0];
-            x->buffer[i][1] += x->buffer[i+blocksize][1];
+            // x->buffer[i][0] += x->buffer[i+blocksize][0];
+            // x->buffer[i][1] += x->buffer[i+blocksize][1];
+            x->buffer[i][0] = x->buffer[i+blocksize][0];
+            x->buffer[i][1] = x->buffer[i+blocksize][1];
         }
     //}
-#pragma endregion
+//#pragma endregion
     return (w+9);
 }
     
@@ -229,7 +252,7 @@ void quadraTrans_tilde_dsp(t_quadraTrans_tilde *x, t_signal **sp){
             sp[2]->s_vec, sp[3]->s_vec, sp[4]->s_vec, sp[5]->s_vec,
             sp[0]->s_n);
     
-#pragma region db
+//#pragma region db
     int power, base;
     x->sr = sp[0]->s_sr;
     char file[2000] = "";
@@ -337,45 +360,45 @@ void quadraTrans_tilde_dsp(t_quadraTrans_tilde *x, t_signal **sp){
         
         post("quadraTrans~: Max. blocksize: 8192, Max. taps %d, currently using %d \n", base, x->nPts);
     }
-#pragma endregion db
+//#pragma endregion db
         
         x->convsize = x->nPts + sp[0]->s_n -1;
         x->fftsize = nextPo2(x->convsize);
-        
+        post("%d %d",x->fftsize,x->convsize);
         for(int i = 0; i < x->fftsize; i++){
             x->buffer[i][0] = 0.0;
             x->buffer[i][1] = 0.0;
         }
         
-#pragma region fftw_set
+//#pragma region fftw_set
         //set L
         x->fftinL = fftwf_alloc_real(x->fftsize);
-        x->fftoutL = fftwf_alloc_complex(x->fftsize);
+        x->fftoutL = fftwf_alloc_complex(x->fftsize/2+1);
         x->fftplanL = fftwf_plan_dft_r2c_1d(x->fftsize, x->fftinL, x->fftoutL, FFTW_MEASURE);
         //set R
         x->fftinR = fftwf_alloc_real(x->fftsize);
-        x->fftoutR = fftwf_alloc_complex(x->fftsize);
+        x->fftoutR = fftwf_alloc_complex(x->fftsize/2+1);
         x->fftplanR = fftwf_plan_dft_r2c_1d((x->fftsize), x->fftinR, x->fftoutR, FFTW_MEASURE);
         //set HrirL
         x->fftinHrirL = fftwf_alloc_real(x->fftsize);
-        x->fftoutHrirL = fftwf_alloc_complex(x->fftsize);
+        x->fftoutHrirL = fftwf_alloc_complex(x->fftsize/2+1);
         x->fftplanHrirL = fftwf_plan_dft_r2c_1d((x->fftsize), x->fftinHrirL, x->fftoutHrirL, FFTW_MEASURE);
         //set HrirR
         x->fftinHrirR = fftwf_alloc_real(x->fftsize);
-        x->fftoutHrirR = fftwf_alloc_complex(x->fftsize);
+        x->fftoutHrirR = fftwf_alloc_complex(x->fftsize/2+1);
         x->fftplanHrirR = fftwf_plan_dft_r2c_1d((x->fftsize), x->fftinHrirR, x->fftoutHrirR, FFTW_MEASURE);
         //set invL
-        x->fftinInvL = fftwf_alloc_complex(x->fftsize);
+        x->fftinInvL = fftwf_alloc_complex(x->fftsize/2+1);
         x->fftoutInvL = fftwf_alloc_real(x->fftsize);
         x->fftplanInvL = fftwf_plan_dft_c2r_1d((x->fftsize), x->fftinInvL, x->fftoutInvL, FFTW_MEASURE);
         //set invR
-        x->fftinInvR = fftwf_alloc_complex(x->fftsize);
+        x->fftinInvR = fftwf_alloc_complex(x->fftsize/2+1);
         x->fftoutInvR = fftwf_alloc_real(x->fftsize);
         x->fftplanInvR = fftwf_plan_dft_c2r_1d((x->fftsize), x->fftinInvR, x->fftoutInvR, FFTW_MEASURE);
         
-#pragma endregion fftw_set
+//#pragma endregion fftw_set
         
-#pragma region speaker_set
+//#pragma region speaker_set
         findFilter(x, 160, 0, 45);   // spearker L
         memcpy(&x->speackersFilters[0][0],x->currentImpulse[0],x->nPts * sizeof(float));
         memcpy(&x->speackersFilters[0][1],x->currentImpulse[0],x->nPts * sizeof(float));
@@ -388,7 +411,7 @@ void quadraTrans_tilde_dsp(t_quadraTrans_tilde *x, t_signal **sp){
         // findFilter(x, 160, 0, 315);  // speaker R
         // memcpy(&x->speackersFilters[1][0],x->currentImpulse[0],x->nPts * sizeof(float));
         // memcpy(&x->speackersFilters[1][1],x->currentImpulse[0],x->nPts * sizeof(float));
-#pragma endregion speaker_set
+//#pragma endregion speaker_set
         
 }
         
@@ -409,7 +432,7 @@ void quadraTrans_tilde_free(t_quadraTrans_tilde *x){
         x->connected = 0;
     }
     
-#pragma region fftw_free
+//#pragma region fftw_free
     fftwf_free(x->fftoutL);
     fftwf_free(x->fftinL);
     fftwf_destroy_plan(x->fftplanL);
@@ -428,7 +451,7 @@ void quadraTrans_tilde_free(t_quadraTrans_tilde *x){
     fftwf_free(x->fftoutHrirR);
     fftwf_free(x->fftinHrirR);
     fftwf_destroy_plan(x->fftplanHrirR);
-#pragma endregion fftw_free
+//#pragma endregion fftw_free
 }
 
 void *quadraTrans_tilde_new(t_floatarg f){
@@ -446,13 +469,13 @@ void *quadraTrans_tilde_new(t_floatarg f){
     x->x_outSL = outlet_new(&x->x_obj, gensym("signal"));
     x->x_outSR = outlet_new(&x->x_obj, gensym("signal"));
     
-#pragma region init
+//#pragma region init
     x->nPtsInDb = 300;
     x->nPts = DEFAULT_N_POINTS;
     
     strcat(x->path, canvas_getdir(canvas_getcurrent())->s_name);
     x->connected = 0;
-#pragma endregion init
+//#pragma endregion init
     
     return (void *)x;
 }

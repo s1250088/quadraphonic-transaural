@@ -78,7 +78,7 @@ static void findFilter(t_quadraTrans_tilde *x, float r, float e, float a) {
     }
 }
 
-int nextPo2(t_float n){
+int nextPo2(int n){
     int i=0, result;
     
     while(1){
