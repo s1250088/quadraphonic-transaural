@@ -95,11 +95,7 @@ t_int *quadraTrans_tilde_perform(t_int *w){
     t_sample  *outSL  =  (t_sample *)(w[5]); //outlet 3
     t_sample  *outR   =  (t_sample *)(w[6]); //outlet 2
     t_sample  *outL   =  (t_sample *)(w[7]); //outlet 1
-    // t_sample  *outL   =  (t_sample *)(w[4]); //outlet 1
-    // t_sample  *outR   =  (t_sample *)(w[5]); //outlet 2
-    // t_sample  *outSL  =  (t_sample *)(w[6]); //outlet 3
-    // t_sample  *outSR  =  (t_sample *)(w[7]); //outlet 4        
-    
+   
     int   blocksize   =         (int)(w[8]);
 
     int i;
@@ -108,10 +104,6 @@ t_int *quadraTrans_tilde_perform(t_int *w){
 
     float gain1=1;
     float gain2=0.5;
-    
-    //if (x->connected == 1) {
-        
-//#pragma region main
         
         for (i = 0; i < x->fftsize; i++) {
             if(i < blocksize){
@@ -127,15 +119,12 @@ t_int *quadraTrans_tilde_perform(t_int *w){
         fftwf_execute(x->fftplanR);
         
         for (i = 0; i < x->fftsize; i++) {
-            //if(i < blocksize){
             if(i < x->nPts){
                 double tmp=(x->currentImpulse[0][i] + x->currentImpulse[1][i]);
-                // double tmp=(x->speackersFilters[0][0][i]+x->speackersFilters[0][1][i]);
                 x->fftinHrirL[i] = 1 / (tmp==0?0.00000000000000000001:tmp);
                 tmp=(x->currentImpulse[0][i] - x->currentImpulse[1][i]);
-                // tmp=(x->speackersFilters[0][0][i]-x->speackersFilters[0][1][i]);
                 x->fftinHrirR[i] = 1 / (tmp==0?0.00000000000000000001:tmp);
-            } else { // blocksize <= i <fftsize
+            } else { // nPts <= i <fftsize
                 x->fftinHrirL[i] = 0;
                 x->fftinHrirR[i] = 0;
             }
@@ -165,101 +154,34 @@ t_int *quadraTrans_tilde_perform(t_int *w){
             x->buffer[i][1] = x->buffer[i][1] + x->fftoutInvR[i];                                   
 
         }
-        // for ( i = 0; i < blocksize; i++)
-        // {
-        //     x->buffer[i][0] = inXL[i];
-        //     x->buffer[i][1] = inXR[i];            
-        // }
-        
         
         // Outputs
-        // char debug[4];
-        // sprintf(debug, "%d", (int)x->aziL);        
-        // post(debug);
         int angle=(int)roundf(fabs(((float)x->aziL)))%360;
         float rad_ang=degToRad(angle);
+    
         for (i = 0; i < x->fftsize; i++) {
-            //if(i < blocksize){                
-                /*float tmp;
-                tmp = x->buffer[i][0];
-                x->buffer[i][0] += x->buffer[i][1];
-                x->buffer[i][1] = tmp - x->buffer[i][1];*/
-                
-            //     if(315<(int)x->aziL || (int)x->aziL<45){
-            //         *outL++  = (x->buffer[i][0]*gain2);//*cosf(degToRad(x->aziL*2));
-            //         *outR++  = (x->buffer[i][1]*gain2);//*cosf(degToRad(x->aziL*2))+(cosf(degToRad(x->aziL*2-90))>0?);
-            //         *outSL++ = 0;
-            //         *outSR++ = 0;
-            //     }
-            //     else if((int)x->aziL==45){
-            //         *outL++  = 0;
-            //         *outR++  = (x->buffer[i][0]+x->buffer[i][1])*gain2;
-            //         *outSL++ = 0;
-            //         *outSR++ = 0;//x->buffer[i][1];                   *gain2 
-            //     }
-            //     else if(45<(int)x->aziL && (int)x->aziL<135){
-            //         *outL++  = 0;
-            //         *outR++  = x->buffer[i][0]*gain2;
-            //         *outSL++ = 0;
-            //         *outSR++ = x->buffer[i][1]*gain2; 
-            //     }
-            //     else if((int)x->aziL==135){
-            //         *outL++  = 0;
-            //         *outR++  = 0;//x->buffer[i][0]*gain2;
-            //         *outSL++ = 0;//x->buffer[i][1]*gain2;
-            //         *outSR++ = (x->buffer[i][0]+x->buffer[i][1])*gain2;//0*gain2;
-            //     }
-            //     else if(135<(int)x->aziL && (int)x->aziL<225){
-            //         *outL++  = 0;
-            //         *outR++  = 0;
-            //         *outSL++ = x->buffer[i][1]*gain2;
-            //         *outSR++ = x->buffer[i][0]*gain2;
-            //     }
-            //     else if((int)x->aziL==225){
-            //         *outL++  = 0;//x->buffer[i][1]*gain2;
-            //         *outR++  = 0;
-            //         *outSL++ = (x->buffer[i][0]+x->buffer[i][1])*gain2;
-            //         *outSR++ = 0;//x->buffer[i][0]*gain2;
-            //     }
-            //     else if(225<(int)x->aziL && (int)x->aziL<315){
-            //         *outL++  = x->buffer[i][1]*gain2;
-            //         *outR++  = 0;
-            //         *outSL++ = x->buffer[i][0]*gain2;
-            //         *outSR++ = 0;
-            //     }
-            //     else if((int)x->aziL==315){
-            //         *outL++  = (x->buffer[i][0]+x->buffer[i][1])*gain2;
-            //         *outR++  = 0;
-            //         *outSL++ = 0;
-            //         *outSR++ = 0;
-            //     }else{
-            //         *outL++  = 0;
-            //         *outR++  = 0;
-            //         *outSL++ = 0;
-            //         *outSR++ = 0;
-            //     }
-            // } 
+            
             if(i < blocksize){   
                 *outL++=((angle>315||angle<45?x->buffer[i][0]*cosf(rad_ang*2):0)+
                         (angle>270&&angle<360?(x->buffer[i][0]+x->buffer[i][1])*cosf(rad_ang*2-(2*315)):0)+
                         (angle>225&&angle<315?x->buffer[i][1]*cosf(rad_ang*2-(2*270)):0))*gain2;
+                
                 *outR++=((angle>315||angle<45?x->buffer[i][1]*cosf(rad_ang*2):0)+
                         (angle>0&&angle<90?(x->buffer[i][0]+x->buffer[i][1])*cosf(rad_ang*2-(2*45)):0)+
                         (angle>45&&angle<135?x->buffer[i][0]*cosf(rad_ang*2-(2*90)):0))*gain2;
+                
                 *outSL++=((angle>135&&angle<225?x->buffer[i][1]*cosf(rad_ang*2-(2*180)):0)+
                         (angle>180&&angle<270?(x->buffer[i][0]+x->buffer[i][1])*cosf(rad_ang*2-(2*225)):0)+
                         (angle>225&&angle<315?x->buffer[i][0]*cosf(rad_ang*2-(2*270)):0))*gain2;
+                
                 *outSR++=((angle>135&&angle<225?x->buffer[i][0]*cosf(rad_ang*2-(2*180)):0)+
                         (angle>90&&angle<180?(x->buffer[i][0]+x->buffer[i][1])*cosf(rad_ang*2-(2*135)):0)+
                         (angle>45&&angle<135?x->buffer[i][1]*cosf(rad_ang*2-(2*90)):0))*gain2;
             }
-            // x->buffer[i][0] += x->buffer[i+blocksize][0];
-            // x->buffer[i][1] += x->buffer[i+blocksize][1];
             x->buffer[i][0] = x->buffer[i+blocksize][0];
             x->buffer[i][1] = x->buffer[i+blocksize][1];
         }
-    //}
-//#pragma endregion
+    
     return (w+9);
 }
     
@@ -270,7 +192,6 @@ void quadraTrans_tilde_dsp(t_quadraTrans_tilde *x, t_signal **sp){
             sp[2]->s_vec, sp[3]->s_vec, sp[4]->s_vec, sp[5]->s_vec,
             sp[0]->s_n);
     
-//#pragma region db
     int power, base;
     x->sr = sp[0]->s_sr;
     char file[2000] = "";
@@ -378,17 +299,15 @@ void quadraTrans_tilde_dsp(t_quadraTrans_tilde *x, t_signal **sp){
         
         post("quadraTrans~: Max. blocksize: 8192, Max. taps %d, currently using %d \n", base, x->nPts);
     }
-//#pragma endregion db
         
         x->convsize = x->nPts + sp[0]->s_n -1;
         x->fftsize = nextPo2(x->convsize);
-        post("%d %d",x->fftsize,x->convsize);
+        post("fftsize: %d, convsize: %d",x->fftsize,x->convsize);
         for(int i = 0; i < x->fftsize; i++){
             x->buffer[i][0] = 0.0;
             x->buffer[i][1] = 0.0;
         }
         
-//#pragma region fftw_set
         //set L
         x->fftinL = fftwf_alloc_real(x->fftsize);
         x->fftoutL = fftwf_alloc_complex(x->fftsize/2+1);
@@ -414,9 +333,6 @@ void quadraTrans_tilde_dsp(t_quadraTrans_tilde *x, t_signal **sp){
         x->fftoutInvR = fftwf_alloc_real(x->fftsize);
         x->fftplanInvR = fftwf_plan_dft_c2r_1d((x->fftsize), x->fftinInvR, x->fftoutInvR, FFTW_MEASURE);
         
-//#pragma endregion fftw_set
-        
-//#pragma region speaker_set
         findFilter(x, 160, 0, 45);   // spearker L
         memcpy(&x->speackersFilters[0][0],x->currentImpulse[0],x->nPts * sizeof(float));
         memcpy(&x->speackersFilters[0][1],x->currentImpulse[0],x->nPts * sizeof(float));
@@ -429,8 +345,6 @@ void quadraTrans_tilde_dsp(t_quadraTrans_tilde *x, t_signal **sp){
         // findFilter(x, 160, 0, 315);  // speaker R
         // memcpy(&x->speackersFilters[1][0],x->currentImpulse[0],x->nPts * sizeof(float));
         // memcpy(&x->speackersFilters[1][1],x->currentImpulse[0],x->nPts * sizeof(float));
-//#pragma endregion speaker_set
-        
 }
         
 void quadraTrans_tilde_free(t_quadraTrans_tilde *x){
@@ -450,7 +364,7 @@ void quadraTrans_tilde_free(t_quadraTrans_tilde *x){
         x->connected = 0;
     }
     
-//#pragma region fftw_free
+    // fftw free
     fftwf_free(x->fftoutL);
     fftwf_free(x->fftinL);
     fftwf_destroy_plan(x->fftplanL);
@@ -469,7 +383,7 @@ void quadraTrans_tilde_free(t_quadraTrans_tilde *x){
     fftwf_free(x->fftoutHrirR);
     fftwf_free(x->fftinHrirR);
     fftwf_destroy_plan(x->fftplanHrirR);
-//#pragma endregion fftw_free
+
 }
 
 void *quadraTrans_tilde_new(t_floatarg f){
@@ -487,13 +401,11 @@ void *quadraTrans_tilde_new(t_floatarg f){
     x->x_outSL = outlet_new(&x->x_obj, gensym("signal"));
     x->x_outSR = outlet_new(&x->x_obj, gensym("signal"));
     
-//#pragma region init
     x->nPtsInDb = 300;
     x->nPts = DEFAULT_N_POINTS;
     
     strcat(x->path, canvas_getdir(canvas_getcurrent())->s_name);
     x->connected = 0;
-//#pragma endregion init
     
     return (void *)x;
 }
